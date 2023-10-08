@@ -9,15 +9,33 @@
 #include <vector>
 #include <memory>
 #include <string>
+#include <map>
+#include <set>
+
+using OptionsMap = std::map<std::string, std::string>;
 
 class PacketOpCodeError: public std::exception {
 private:
-    uint16_t opcode;
+    std::string errorMessage;
+
+
+public:
+    explicit PacketOpCodeError(uint16_t op) {
+        errorMessage = "Wrong opcode: " + std::to_string(op);
+    }
+
+    [[nodiscard]] const char* what() const noexcept override {
+        return errorMessage.c_str();
+    }
+};
+
+class PacketOptionError: public std::exception {
+private:
     std::string errorMessage;
 
 public:
-    explicit PacketOpCodeError(uint16_t op) : opcode(op) {
-        errorMessage = "Wrong opcode: " + std::to_string(op);
+    explicit PacketOptionError(const std::string& option) {
+        errorMessage = "Wrong option: " + option;
     }
 
     [[nodiscard]] const char* what() const noexcept override {
@@ -32,18 +50,22 @@ public:
     [[nodiscard]] virtual std::vector<uint8_t> serialize() const = 0;
     static std::unique_ptr<TFTPPacket> deserialize(const std::vector<uint8_t>& data);
 
+    static OptionsMap parseOptions(const std::vector<uint8_t>& data, size_t start);
+    static std::string formatOptions(const OptionsMap& options);
 };
 
 class RRQPacket : public TFTPPacket {
     std::string filename;
     std::string mode;
+    OptionsMap options;
     
 public:
 
-    RRQPacket(std::string filename, std::string  mode) : filename(std::move(filename)), mode(std::move(mode)) {}
+    RRQPacket(std::string filename, std::string mode, const OptionsMap& opts) : filename(std::move(filename)), mode(std::move(mode)), options(opts) {}
 
     [[nodiscard]] std::string getFilename() const { return filename; }
     [[nodiscard]] std::string getMode() const { return mode; }
+    [[nodiscard]] std::string getOptions() const { return formatOptions(options); }
 
     [[nodiscard]] std::vector<uint8_t> serialize() const override;
 
@@ -53,12 +75,14 @@ public:
 class WRQPacket : public TFTPPacket {
     std::string filename;
     std::string mode;
+    OptionsMap options;
 
 public:
-    WRQPacket(std::string filename, std::string  mode) : filename(std::move(filename)), mode(std::move(mode)) {}
+    WRQPacket(std::string filename, std::string mode, const OptionsMap& opts) : filename(std::move(filename)), mode(std::move(mode)), options(opts) {}
 
     [[nodiscard]] std::string getFilename() const { return filename; }
     [[nodiscard]] std::string getMode() const { return mode; }
+    [[nodiscard]] std::string getOptions() const { return formatOptions(options); }
 
     [[nodiscard]] std::vector<uint8_t> serialize() const override;
 

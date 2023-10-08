@@ -24,6 +24,49 @@ std::unique_ptr<TFTPPacket> TFTPPacket::deserialize(const std::vector<uint8_t> &
     }
 }
 
+OptionsMap TFTPPacket::parseOptions(const std::vector<uint8_t> &data, size_t start) {
+    const std::set<std::string> validOptions = {
+            "blksize",
+            "timeout",
+            "tsize"
+    };
+
+    OptionsMap options;
+    std::string key, value;
+    bool isKey = true;
+
+    for (size_t i = start; i < data.size() && data[i]; ++i) {
+        if (data[i] == 0) {
+            if (isKey) isKey = false;
+            else {
+                if (validOptions.find(key) != validOptions.end()) {
+                    options[key] = value;
+                } else {
+                    throw PacketOptionError(key);
+                }
+                key.clear();
+                value.clear();
+            }
+        } else {
+            if (isKey) key+= static_cast<char>(data[i]);
+            else value += static_cast<char>(data[i]);
+        }
+    }
+
+    return options;
+}
+
+std::string TFTPPacket::formatOptions(const OptionsMap &options) {
+    std::string result;
+
+    for (const auto& pair: options) {
+        if (!result.empty()) result += " ";
+
+        result += pair.first + "=" + pair.second;
+    }
+    return result;
+}
+
 std::vector<uint8_t> RRQPacket::serialize() const {
     std::vector<uint8_t> output;
 
@@ -60,7 +103,11 @@ std::unique_ptr<RRQPacket> RRQPacket::deserializeFromData(const std::vector<uint
         mode += static_cast<char>(data[idx++]);
     }
 
-    return std::make_unique<RRQPacket>(fname, mode);
+    idx++;
+
+    OptionsMap opts = TFTPPacket::parseOptions(data, idx);
+
+    return std::make_unique<RRQPacket>(fname, mode, opts);
 }
 
 std::vector<uint8_t> WRQPacket::serialize() const {
@@ -100,7 +147,10 @@ std::unique_ptr<WRQPacket> WRQPacket::deserializeFromData(const std::vector<uint
         mode += static_cast<char>(data[idx++]);
     }
 
-    return std::make_unique<WRQPacket>(fname, mode);
+    idx++;
+
+    OptionsMap opts = TFTPPacket::parseOptions(data, idx);
+    return std::make_unique<WRQPacket>(fname, mode, opts);
 }
 
 std::vector<uint8_t> DataPacket::serialize() const {
