@@ -45,7 +45,22 @@ std::vector<uint8_t> RRQPacket::serialize() const {
 }
 
 std::unique_ptr<RRQPacket> RRQPacket::deserializeFromData(const std::vector<uint8_t> &data) {
-    return std::unique_ptr<RRQPacket>();
+    int idx = 2;
+
+    std::string fname;
+    while (data[idx] && idx < data.size()) {
+        fname += static_cast<char>(data[idx++]);
+    }
+
+    idx++;
+
+    std::string mode;
+
+    while (data[idx] && idx < data.size()) {
+        mode += static_cast<char>(data[idx++]);
+    }
+
+    return std::make_unique<RRQPacket>(fname, mode);
 }
 
 std::vector<uint8_t> WRQPacket::serialize() const {
@@ -69,7 +84,23 @@ std::vector<uint8_t> WRQPacket::serialize() const {
 }
 
 std::unique_ptr<WRQPacket> WRQPacket::deserializeFromData(const std::vector<uint8_t> &data) {
-    return std::unique_ptr<WRQPacket>();
+    int idx = 2;
+
+    std::string fname;
+
+    while (data[idx] && idx < data.size()) {
+        fname += static_cast<char>(data[idx++]);
+    }
+
+    idx++;
+
+    std::string mode;
+
+    while (data[idx] && idx < data.size()) {
+        mode += static_cast<char>(data[idx++]);
+    }
+
+    return std::make_unique<WRQPacket>(fname, mode);
 }
 
 std::vector<uint8_t> DataPacket::serialize() const {
@@ -89,7 +120,15 @@ std::vector<uint8_t> DataPacket::serialize() const {
 }
 
 std::unique_ptr<DataPacket> DataPacket::deserializeFromData(const std::vector<uint8_t> &data) {
-    return std::unique_ptr<DataPacket>();
+    if (data.size() < 4) {
+        return nullptr;
+    }
+
+    uint16_t blockNum = (data[2] << 8) | data[3];
+
+    std::vector<uint8_t> outData(data.begin() + 4, data.end());
+
+    return std::make_unique<DataPacket>(blockNum, outData);
 }
 
 std::vector<uint8_t> AckPacket::serialize() const {
@@ -105,7 +144,13 @@ std::vector<uint8_t> AckPacket::serialize() const {
 }
 
 std::unique_ptr<AckPacket> AckPacket::deserializeFromData(const std::vector<uint8_t> &data) {
-    return std::unique_ptr<AckPacket>();
+    if (data.size() != 4) {
+        return nullptr;
+    }
+
+    uint16_t blockNum = (data[2] << 8) | data[3];
+
+    return std::make_unique<AckPacket>(blockNum);
 }
 
 std::vector<uint8_t> ErrorPacket::serialize() const {
@@ -127,5 +172,17 @@ std::vector<uint8_t> ErrorPacket::serialize() const {
 }
 
 std::unique_ptr<ErrorPacket> ErrorPacket::deserializeFromData(const std::vector<uint8_t> &data) {
-    return std::unique_ptr<ErrorPacket>();
+    if (data.size() < 4) {
+        return nullptr;
+    }
+
+    uint16_t errorCode = (data[2] << 8) | data[3];
+
+    int idx = 4;
+    std::string errorMessage;
+    while (data[idx] && idx < data.size()) {
+        errorMessage += static_cast<char>(data[idx++]);
+    }
+
+    return std::make_unique<ErrorPacket>(errorCode, errorMessage);
 }

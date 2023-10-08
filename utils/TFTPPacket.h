@@ -39,7 +39,11 @@ class RRQPacket : public TFTPPacket {
     std::string mode;
     
 public:
-    RRQPacket(std::string fname, std::string  mode) : filename(std::move(fname)), mode(std::move(mode)) {}
+
+    RRQPacket(std::string filename, std::string  mode) : filename(std::move(filename)), mode(std::move(mode)) {}
+
+    [[nodiscard]] std::string getFilename() const { return filename; }
+    [[nodiscard]] std::string getMode() const { return mode; }
 
     [[nodiscard]] std::vector<uint8_t> serialize() const override;
 
@@ -51,7 +55,10 @@ class WRQPacket : public TFTPPacket {
     std::string mode;
 
 public:
-    WRQPacket(std::string fname, std::string  mode) : filename(std::move(fname)), mode(std::move(mode)) {}
+    WRQPacket(std::string filename, std::string  mode) : filename(std::move(filename)), mode(std::move(mode)) {}
+
+    [[nodiscard]] std::string getFilename() const { return filename; }
+    [[nodiscard]] std::string getMode() const { return mode; }
 
     [[nodiscard]] std::vector<uint8_t> serialize() const override;
 
@@ -66,6 +73,7 @@ class DataPacket : public TFTPPacket {
 public:
     DataPacket(uint16_t blockNumber, std::vector<uint8_t> data) : blockNumber(blockNumber), data(std::move(data)) {}
 
+    [[nodiscard]] std::string getBlockNumber() const { return std::to_string(blockNumber); }
     [[nodiscard]] std::vector<uint8_t> serialize() const override;
 
     static std::unique_ptr<DataPacket> deserializeFromData(const std::vector<uint8_t>& data);
@@ -75,8 +83,9 @@ class AckPacket : public TFTPPacket {
     uint16_t blockNumber;
 
 public:
-    AckPacket(uint16_t blockNumber) : blockNumber(blockNumber) {}
+    explicit AckPacket(uint16_t blockNumber) : blockNumber(blockNumber) {}
 
+    [[nodiscard]] std::string getBlockNumber() const { return std::to_string(blockNumber); }
     [[nodiscard]] std::vector<uint8_t> serialize() const override;
 
     static std::unique_ptr<AckPacket> deserializeFromData(const std::vector<uint8_t>& data);
@@ -89,6 +98,8 @@ class ErrorPacket : public TFTPPacket {
 public:
     ErrorPacket(uint16_t errorCode, std::string errorMsg) : errorCode(errorCode), errorMsg(std::move(errorMsg)) {}
 
+    [[nodiscard]] std::string getErrorCode() const { return std::to_string(errorCode); }
+    [[nodiscard]] std::string getErrorMsg() const { return errorMsg; }
     [[nodiscard]] std::vector<uint8_t> serialize() const override;
 
     static std::unique_ptr<ErrorPacket> deserializeFromData(const std::vector<uint8_t>& data);
