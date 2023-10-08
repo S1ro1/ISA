@@ -10,6 +10,21 @@
 #include <memory>
 #include <string>
 
+class PacketOpCodeError: public std::exception {
+private:
+    uint16_t opcode;
+    std::string errorMessage;
+
+public:
+    explicit PacketOpCodeError(uint16_t op) : opcode(op) {
+        errorMessage = "Wrong opcode: " + std::to_string(op);
+    }
+
+    [[nodiscard]] const char* what() const noexcept override {
+        return errorMessage.c_str();
+    }
+};
+
 class TFTPPacket {
 public:
     virtual ~TFTPPacket() = default;
