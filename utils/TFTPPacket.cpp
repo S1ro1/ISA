@@ -48,7 +48,7 @@ OptionsMap TFTPPacket::parseOptions(const std::vector<uint8_t> &data, size_t sta
                 value.clear();
             }
         } else {
-            if (isKey) key+= static_cast<char>(data[i]);
+            if (isKey) key += static_cast<char>(data[i]);
             else value += static_cast<char>(data[i]);
         }
     }
@@ -59,7 +59,7 @@ OptionsMap TFTPPacket::parseOptions(const std::vector<uint8_t> &data, size_t sta
 std::string TFTPPacket::formatOptions(const OptionsMap &options) {
     std::string result;
 
-    for (const auto& pair: options) {
+    for (const auto &pair: options) {
         if (!result.empty()) result += " ";
 
         result += pair.first + "=" + pair.second;
@@ -72,13 +72,13 @@ std::vector<uint8_t> RRQPacket::serialize() const {
 
     output.push_back(0);
     output.push_back(1);
-    for (char c : filename) {
+    for (char c: filename) {
         output.push_back(static_cast<uint8_t>(c));
     }
 
     output.push_back(0);
 
-    for (char c : mode) {
+    for (char c: mode) {
         output.push_back(static_cast<uint8_t>(c));
     }
 
@@ -115,13 +115,13 @@ std::vector<uint8_t> WRQPacket::serialize() const {
 
     output.push_back(0);
     output.push_back(2);
-    for (char c : filename) {
+    for (char c: filename) {
         output.push_back(static_cast<uint8_t>(c));
     }
 
     output.push_back(0);
 
-    for (char c : mode) {
+    for (char c: mode) {
         output.push_back(static_cast<uint8_t>(c));
     }
 
@@ -212,7 +212,7 @@ std::vector<uint8_t> ErrorPacket::serialize() const {
     output.push_back((errorCode >> 8) & 0xFF);
     output.push_back(errorCode & 0xFF);
 
-    for (char c : errorMsg) {
+    for (char c: errorMsg) {
         output.push_back(static_cast<uint8_t>(c));
     }
 
@@ -235,4 +235,36 @@ std::unique_ptr<ErrorPacket> ErrorPacket::deserializeFromData(const std::vector<
     }
 
     return std::make_unique<ErrorPacket>(errorCode, errorMessage);
+}
+
+std::vector<uint8_t> OACKPacket::serialize() const {
+    std::vector<uint8_t> output;
+
+    output.push_back(0);
+    output.push_back(6);
+
+    for (const auto &pair: options) {
+        for (char c: pair.first) {
+            output.push_back(static_cast<uint8_t>(c));
+        }
+
+        output.push_back(0);
+
+        for (char c: pair.second) {
+            output.push_back(static_cast<uint8_t>(c));
+        }
+
+        output.push_back(0);
+    }
+
+    return output;
+}
+
+std::unique_ptr<OACKPacket> OACKPacket::deserializeFromData(const std::vector<uint8_t> &data) {
+    int idx = 2;
+
+    OptionsMap opts = TFTPPacket::parseOptions(data, idx);
+
+    return std::make_unique<OACKPacket>(opts);
+
 }
