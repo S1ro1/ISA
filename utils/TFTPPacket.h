@@ -107,9 +107,12 @@ class OACKPacket : public TFTPPacket {
     OptionsMap options;
 
 public:
+
     explicit OACKPacket(OptionsMap opts) : options(std::move(opts)) {}
 
-    [[nodiscard]] std::string getOptions() const { return formatOptions(options); }
+    [[nodiscard]] OptionsMap getOptions() const { return options; }
+
+    [[nodiscard]] std::string getFormattedOptions() const { return formatOptions(options); }
 
     [[nodiscard]] std::vector<uint8_t> serialize() const override;
 
@@ -123,6 +126,8 @@ class DataPacket : public TFTPPacket {
 
 public:
     DataPacket(uint16_t blockNumber, std::vector<uint8_t> data) : blockNumber(blockNumber), data(std::move(data)) {}
+
+    [[nodiscard]] std::vector<uint8_t> getData() const { return data; }
 
     [[nodiscard]] std::string getBlockNumber() const { return std::to_string(blockNumber); }
 
