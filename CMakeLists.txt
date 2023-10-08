@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.25)
+project(isa_project)
+
+set(CMAKE_CXX_STANDARD 23)
+
+add_executable(isa_server server.cpp)
+add_executable(isa_client client.cpp)
