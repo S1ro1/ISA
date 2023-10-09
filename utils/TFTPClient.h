@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <string>
 #include <fstream>
+#include <iostream>
 
 #include "TFTPPacket.h"
 #include "ArgParser.h"
@@ -58,6 +59,7 @@ public:
 
     void requestWrite();
 
+    void handleDataPacket(std::ofstream &outputFile, DataPacket *data_packet);
 };
 
 

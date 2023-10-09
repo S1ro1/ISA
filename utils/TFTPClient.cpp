@@ -7,7 +7,10 @@
 void TFTPClient::transmit() {
     if (mode == Mode::DOWNLOAD) {
         requestRead();
+    } else {
+        requestWrite();
     }
+
 }
 
 TFTPClient::TFTPClient(const ClientArgs &args) {
@@ -58,6 +61,18 @@ std::unique_ptr<TFTPPacket> TFTPClient::receivePacket() {
     return TFTPPacket::deserialize(buffer);
 }
 
+void TFTPClient::handleDataPacket(std::ofstream &outputFile, DataPacket *data_packet) {
+    uint16_t blockNumber = std::strtol(data_packet->getBlockNumber().c_str(), nullptr, 10);
+    AckPacket ack(blockNumber);
+    sendPacket(ack);
+
+    auto data = data_packet->getData();
+    if (data.size() < 512) {
+        state = TFTPState::FINAL_ACK;
+    }
+    outputFile.write(reinterpret_cast<char *>(data.data()), static_cast<long>(data.size()));
+}
+
 void TFTPClient::requestRead() {
     std::ofstream outputFile(dst_file_path, std::ios::binary);
 
@@ -68,41 +83,88 @@ void TFTPClient::requestRead() {
 
     state = TFTPState::SENT_RRQ;
 
+    auto packet = receivePacket();
+
+    auto oack_packet = dynamic_cast<OACKPacket *>(packet.get());
+    auto data_packet = dynamic_cast<DataPacket *>(packet.get());
+
+    if (oack_packet) {
+        opts = oack_packet->getOptions();
+    } else if (data_packet) {
+        opts = OptionsMap{};
+        handleDataPacket(outputFile, data_packet);
+    } else {
+        state = TFTPState::ERROR;
+        outputFile.close();
+        return;
+    }
+
     while (state != TFTPState::FINAL_ACK && state != TFTPState::ERROR) {
         auto packet = receivePacket();
 
         auto data_packet = dynamic_cast<DataPacket *>(packet.get());
         if (data_packet) {
-            uint16_t blockNumber = std::strtol(data_packet->getBlockNumber().c_str(), nullptr, 10);
-            AckPacket ack(blockNumber);
-            sendPacket(ack);
+            handleDataPacket(outputFile, data_packet);
 
-            auto data = data_packet->getData();
-            if (data.size() < 512) {
-                state = TFTPState::FINAL_ACK;
-            }
-            outputFile.write(reinterpret_cast<char *>(data.data()), static_cast<long>(data.size()));
-
-            continue;
-        }
-
-        auto oack_packet = dynamic_cast<OACKPacket *>(packet.get());
-
-        if (oack_packet) {
-            //TODO: validate options
-
-            opts = oack_packet->getOptions();
             continue;
         }
 
         auto err_packet = dynamic_cast<ErrorPacket *>(packet.get());
 
         if (err_packet) {
-            // TODO: error handling
-            continue;
+            //TODO: error handling
+            state = TFTPState::ERROR;
+            outputFile.close();
+            return;
         }
     }
 
     outputFile.close();
+}
+
+void TFTPClient::requestWrite() {
+    WRQPacket wrq(dst_file_path, transmissionMode, opts);
+    sendPacket(wrq);
+    state = TFTPState::SENT_WRQ;
+
+    auto packet = receivePacket();
+
+    auto oack_packet = dynamic_cast<OACKPacket *>(packet.get());
+    auto ack_packet = dynamic_cast<AckPacket *>(packet.get());
+
+    if (oack_packet) {
+        opts = oack_packet->getOptions();
+    } else if (ack_packet) {
+    } else {
+        state = TFTPState::ERROR;
+        return;
+    }
+
+    uint16_t blockNumber = 1;
+
+    while (state != TFTPState::FINAL_ACK && state != TFTPState::ERROR) {
+        // TODO: check with options
+        std::vector<uint8_t> data(512);
+
+        std::cin.read(reinterpret_cast<char *>(data.data()), static_cast<long>(data.size()));
+        size_t bytesRead = std::cin.gcount();
+
+        if (bytesRead < data.size()) data.resize(bytesRead);
+
+        DataPacket dataPacket(blockNumber, data);
+        sendPacket(dataPacket);
+
+        packet = receivePacket();
+
+        auto ack_packet = dynamic_cast<AckPacket *>(packet.get());
+
+        if (!ack_packet) {
+            state = TFTPState::ERROR;
+            return;
+        }
+        blockNumber++;
+
+        if (bytesRead < 512) state = TFTPState::FINAL_ACK;
+    }
 }
 
