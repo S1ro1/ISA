@@ -3,6 +3,7 @@
 //
 
 #include "TFTPClient.h"
+#include <iomanip>
 
 void TFTPClient::transmit() {
     if (mode == Mode::DOWNLOAD) {
@@ -51,32 +52,44 @@ std::unique_ptr<TFTPPacket> TFTPClient::receivePacket() {
 
     socklen_t from_length = sizeof(from_address);
 
-    ssize_t received = recvfrom(socket_fd, buffer.data(), buffer.size(), 0, (struct sockaddr *) &from_address,
+    ssize_t received = recvfrom(socket_fd, buffer.data(), buffer.size() * 50, 0, (struct sockaddr *) &from_address,
                                 &from_length);
 
     //TODO: error handling
 
     if (state == TFTPState::SENT_RRQ || state == TFTPState::SENT_WRQ) server_address.sin_port = from_address.sin_port;
 
+    std::cout << "Received " << received << " bytes" << std::endl;
+
+    buffer.resize(received);
+
     return TFTPPacket::deserialize(buffer);
 }
 
 void TFTPClient::handleDataPacket(std::ofstream &outputFile, DataPacket *data_packet) {
+    std::cout << "Received data packet" << std::endl;
     uint16_t blockNumber = std::strtol(data_packet->getBlockNumber().c_str(), nullptr, 10);
     AckPacket ack(blockNumber);
     sendPacket(ack);
 
-    auto data = data_packet->getData();
+    std::vector<uint8_t> data = data_packet->getData();
+
     if (data.size() < 512) {
+        std::cout << "Less than 512 bytes received, final ack" << std::endl;
         state = TFTPState::FINAL_ACK;
     }
+    std::cout << "Writing..." << std::endl;
     outputFile.write(reinterpret_cast<char *>(data.data()), static_cast<long>(data.size()));
 }
 
 void TFTPClient::requestRead() {
+    std::cout << "Requesting read" << std::endl;
+    std::cout << "Opening file " << dst_file_path << std::endl;
     std::ofstream outputFile(dst_file_path, std::ios::binary);
 
     // TODO: error handling
+
+    std::cout << src_file_path << std::endl;
 
     RRQPacket rrq(src_file_path, transmissionMode, opts);
     sendPacket(rrq);
@@ -84,6 +97,8 @@ void TFTPClient::requestRead() {
     state = TFTPState::SENT_RRQ;
 
     auto packet = receivePacket();
+
+    std::cout << "Received packet" << std::endl;
 
     auto oack_packet = dynamic_cast<OACKPacket *>(packet.get());
     auto data_packet = dynamic_cast<DataPacket *>(packet.get());
@@ -99,7 +114,8 @@ void TFTPClient::requestRead() {
         return;
     }
 
-    while (state != TFTPState::FINAL_ACK && state != TFTPState::ERROR) {
+    while (state != TFTPState::FINAL_ACK) {
+        std::cout << "Here?" << std::endl;
         auto packet = receivePacket();
 
         auto data_packet = dynamic_cast<DataPacket *>(packet.get());
