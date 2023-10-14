@@ -8,6 +8,7 @@
 #include <string>
 #include <optional>
 #include <iostream>
+#include <cstring>
 
 #include <unistd.h>
 
@@ -19,7 +20,7 @@ struct ClientArgs {
     std::string dst_file_path;
 
 public:
-    friend std::ostream& operator <<(std::ostream& os, const ClientArgs& obj);
+    friend std::ostream &operator<<(std::ostream &os, const ClientArgs &obj);
 };
 
 struct ServerArgs {
@@ -27,13 +28,14 @@ struct ServerArgs {
     std::string root_dir;
 
 public:
-    friend std::ostream& operator <<(std::ostream& os, const ServerArgs& obj);
+    friend std::ostream &operator<<(std::ostream &os, const ServerArgs &obj);
 };
 
 class ArgParser {
 public:
-    static ClientArgs parseClientArgs(char* argv[], int argc);
-    static ServerArgs parseServerArgs(char* argv[], int argc);
+    static ClientArgs parseClientArgs(char *argv[], int argc);
+
+    static ServerArgs parseServerArgs(char *argv[], int argc);
 };
 
 

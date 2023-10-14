@@ -42,17 +42,18 @@ void TFTPClient::sendPacket(const TFTPPacket &packet) {
     ssize_t sent = sendto(socket_fd, data.data(), data.size(), 0, (struct sockaddr *) &server_address,
                           sizeof(server_address));
 
+
     // TODO: error handling
 }
 
 std::unique_ptr<TFTPPacket> TFTPClient::receivePacket() {
-    std::vector<uint8_t> buffer(1024);
+    std::vector<uint8_t> buffer(65535);
 
     sockaddr_in from_address = {};
 
     socklen_t from_length = sizeof(from_address);
 
-    ssize_t received = recvfrom(socket_fd, buffer.data(), buffer.size() * 50, 0, (struct sockaddr *) &from_address,
+    ssize_t received = recvfrom(socket_fd, buffer.data(), buffer.size(), 0, (struct sockaddr *) &from_address,
                                 &from_length);
 
     //TODO: error handling
@@ -89,10 +90,9 @@ void TFTPClient::requestRead() {
 
     // TODO: error handling
 
-    std::cout << src_file_path << std::endl;
-
     RRQPacket rrq(src_file_path, transmissionMode, opts);
     sendPacket(rrq);
+
 
     state = TFTPState::SENT_RRQ;
 

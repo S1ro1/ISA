@@ -12,22 +12,11 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <cstring>
 
 #include "TFTPPacket.h"
 #include "ArgParser.h"
-
-enum class TFTPState {
-    INIT,
-    SENT_RRQ,
-    SENT_WRQ,
-    FINAL_ACK,
-    ERROR
-};
-
-enum class Mode {
-    DOWNLOAD,
-    UPLOAD,
-};
+#include "utils.h"
 
 
 class TFTPClient {
