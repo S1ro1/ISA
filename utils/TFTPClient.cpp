@@ -142,6 +142,8 @@ void TFTPClient::requestRead() {
 
 void TFTPClient::requestWrite() {
     WRQPacket wrq(dst_file_path, transmissionMode, opts);
+
+
     sendPacket(wrq);
     state = TFTPState::SENT_WRQ;
 
@@ -149,10 +151,16 @@ void TFTPClient::requestWrite() {
 
     auto oack_packet = dynamic_cast<OACKPacket *>(packet.get());
     auto ack_packet = dynamic_cast<ACKPacket *>(packet.get());
+    auto err_packet = dynamic_cast<ErrorPacket *>(packet.get());
 
     if (oack_packet) {
         opts = oack_packet->getOptions();
     } else if (ack_packet) {
+
+    } else if (err_packet) {
+        state = TFTPState::ERROR;
+        std::cout << err_packet->getErrorMsg() << std::endl;
+        return;
     } else {
         state = TFTPState::ERROR;
         return;
