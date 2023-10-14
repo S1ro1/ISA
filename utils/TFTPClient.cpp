@@ -70,7 +70,7 @@ std::unique_ptr<TFTPPacket> TFTPClient::receivePacket() {
 void TFTPClient::handleDataPacket(std::ofstream &outputFile, DataPacket *data_packet) {
     std::cout << "Received data packet" << std::endl;
     uint16_t blockNumber = std::strtol(data_packet->getBlockNumber().c_str(), nullptr, 10);
-    AckPacket ack(blockNumber);
+    ACKPacket ack(blockNumber);
     sendPacket(ack);
 
     std::vector<uint8_t> data = data_packet->getData();
@@ -104,8 +104,10 @@ void TFTPClient::requestRead() {
     auto data_packet = dynamic_cast<DataPacket *>(packet.get());
 
     if (oack_packet) {
+        std::cout << "Received first OACK packet" << std::endl;
         opts = oack_packet->getOptions();
     } else if (data_packet) {
+        std::cout << "Received first data packet" << std::endl;
         opts = OptionsMap{};
         handleDataPacket(outputFile, data_packet);
     } else {
@@ -146,7 +148,7 @@ void TFTPClient::requestWrite() {
     auto packet = receivePacket();
 
     auto oack_packet = dynamic_cast<OACKPacket *>(packet.get());
-    auto ack_packet = dynamic_cast<AckPacket *>(packet.get());
+    auto ack_packet = dynamic_cast<ACKPacket *>(packet.get());
 
     if (oack_packet) {
         opts = oack_packet->getOptions();
@@ -172,7 +174,7 @@ void TFTPClient::requestWrite() {
 
         packet = receivePacket();
 
-        auto ack_packet = dynamic_cast<AckPacket *>(packet.get());
+        auto ack_packet = dynamic_cast<ACKPacket *>(packet.get());
 
         if (!ack_packet) {
             state = TFTPState::ERROR;

@@ -16,7 +16,7 @@ std::unique_ptr<TFTPPacket> TFTPPacket::deserialize(const std::vector<uint8_t> &
         case 3:
             return DataPacket::deserializeFromData(data);
         case 4:
-            return AckPacket::deserializeFromData(data);
+            return ACKPacket::deserializeFromData(data);
         case 5:
             return ErrorPacket::deserializeFromData(data);
         default:
@@ -181,7 +181,7 @@ std::unique_ptr<DataPacket> DataPacket::deserializeFromData(const std::vector<ui
     return std::make_unique<DataPacket>(blockNum, outData);
 }
 
-std::vector<uint8_t> AckPacket::serialize() const {
+std::vector<uint8_t> ACKPacket::serialize() const {
     std::vector<uint8_t> output;
 
     output.push_back(0);
@@ -193,14 +193,14 @@ std::vector<uint8_t> AckPacket::serialize() const {
     return output;
 }
 
-std::unique_ptr<AckPacket> AckPacket::deserializeFromData(const std::vector<uint8_t> &data) {
+std::unique_ptr<ACKPacket> ACKPacket::deserializeFromData(const std::vector<uint8_t> &data) {
     if (data.size() != 4) {
         return nullptr;
     }
 
     uint16_t blockNum = (data[2] << 8) | data[3];
 
-    return std::make_unique<AckPacket>(blockNum);
+    return std::make_unique<ACKPacket>(blockNum);
 }
 
 std::vector<uint8_t> ErrorPacket::serialize() const {

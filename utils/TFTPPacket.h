@@ -73,7 +73,9 @@ public:
 
     [[nodiscard]] std::string getMode() const { return mode; }
 
-    [[nodiscard]] std::string getOptions() const { return formatOptions(options); }
+    [[nodiscard]] std::string getFormattedOptions() const { return formatOptions(options); }
+
+    [[nodiscard]] OptionsMap getOptions() const { return options; }
 
     [[nodiscard]] std::vector<uint8_t> serialize() const override;
 
@@ -95,7 +97,9 @@ public:
 
     [[nodiscard]] std::string getMode() const { return mode; }
 
-    [[nodiscard]] std::string getOptions() const { return formatOptions(options); }
+    [[nodiscard]] std::string getFormattedOptions() const { return formatOptions(options); }
+
+    [[nodiscard]] OptionsMap getOptions() const { return options; }
 
     [[nodiscard]] std::vector<uint8_t> serialize() const override;
 
@@ -137,17 +141,17 @@ public:
 };
 
 
-class AckPacket : public TFTPPacket {
+class ACKPacket : public TFTPPacket {
     uint16_t blockNumber;
 
 public:
-    explicit AckPacket(uint16_t blockNumber) : blockNumber(blockNumber) {}
+    explicit ACKPacket(uint16_t blockNumber) : blockNumber(blockNumber) {}
 
-    [[nodiscard]] std::string getBlockNumber() const { return std::to_string(blockNumber); }
+    [[nodiscard]] uint16_t getBlockNumber() const { return blockNumber; }
 
     [[nodiscard]] std::vector<uint8_t> serialize() const override;
 
-    static std::unique_ptr<AckPacket> deserializeFromData(const std::vector<uint8_t> &data);
+    static std::unique_ptr<ACKPacket> deserializeFromData(const std::vector<uint8_t> &data);
 };
 
 

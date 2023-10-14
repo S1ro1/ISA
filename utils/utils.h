@@ -8,7 +8,9 @@
 enum class TFTPState {
     INIT,
     SENT_RRQ,
+    RECEIVED_RRQ,
     SENT_WRQ,
+    RECEIVED_WRQ,
     FINAL_ACK,
     ERROR
 };

@@ -17,6 +17,7 @@
 #include "TFTPPacket.h"
 #include "ArgParser.h"
 #include "utils.h"
+#include "Connection.h"
 
 class TFTPServer {
     int main_socket_fd;
@@ -25,12 +26,14 @@ class TFTPServer {
 
     std::vector<std::jthread> threads;
 
+
 public:
     explicit TFTPServer(const ServerArgs &args);
 
     ~TFTPServer() {
         close(main_socket_fd);
     }
+
 
     void listen();
 };
