@@ -69,7 +69,7 @@ std::unique_ptr<TFTPPacket> TFTPClient::receivePacket() {
 
 void TFTPClient::handleDataPacket(std::ofstream &outputFile, DataPacket *data_packet) {
     std::cout << "Received data packet" << std::endl;
-    uint16_t blockNumber = std::strtol(data_packet->getBlockNumber().c_str(), nullptr, 10);
+    uint16_t blockNumber = data_packet->getBlockNumber();
     ACKPacket ack(blockNumber);
     sendPacket(ack);
 
@@ -142,7 +142,6 @@ void TFTPClient::requestRead() {
 
 void TFTPClient::requestWrite() {
     WRQPacket wrq(dst_file_path, transmissionMode, opts);
-
 
     sendPacket(wrq);
     state = TFTPState::SENT_WRQ;

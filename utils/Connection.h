@@ -37,9 +37,7 @@ class Connection {
     std::unique_ptr<TFTPPacket> receivePacket();
 
 public:
-    Connection(std::string file_path, Mode mode, OptionsMap options, sockaddr_in client_address);
-
-    void transmit();
+    Connection(std::string file_path, OptionsMap options, sockaddr_in client_address);
 
     void serveDownload();
 

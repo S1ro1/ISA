@@ -133,7 +133,7 @@ public:
 
     [[nodiscard]] std::vector<uint8_t> getData() const { return data; }
 
-    [[nodiscard]] std::string getBlockNumber() const { return std::to_string(blockNumber); }
+    [[nodiscard]] uint16_t getBlockNumber() const { return blockNumber; }
 
     [[nodiscard]] std::vector<uint8_t> serialize() const override;
 

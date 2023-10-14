@@ -39,28 +39,18 @@ void TFTPServer::listen() {
         // TODO: error handling
         if (rrq_packet) {
             auto file_path = root_dir + "/" + rrq_packet->getFilename();
-            auto connection = std::make_unique<Connection>(file_path, Mode::DOWNLOAD, rrq_packet->getOptions(),
+            auto connection = std::make_unique<Connection>(file_path, rrq_packet->getOptions(),
                                                            from_address);
-
             connections.push_back(std::move(connection));
-
-            std::jthread thread([conn = connections.back().get()]() {
-                conn->serveDownload();
-            });
-            threads.push_back(std::move(thread));
+            threads.emplace_back(&Connection::serveDownload, connections.back().get());
         } else if (wrq_packet) {
             auto file_path = root_dir + "/" + wrq_packet->getFilename();
-            auto connection = std::make_unique<Connection>(file_path, Mode::DOWNLOAD, rrq_packet->getOptions(),
+            auto connection = std::make_unique<Connection>(file_path, wrq_packet->getOptions(),
                                                            from_address);
-
             connections.push_back(std::move(connection));
-
-            std::jthread thread([conn = connections.back().get()]() {
-                conn->serveDownload();
-            });
-            threads.push_back(std::move(thread));
+            threads.emplace_back(&Connection::serveUpload, connections.back().get());
         } else {
-            std::cout << "err" << std::endl;
+            std::cout << "Invalid data received, continuing" << std::endl;
             continue;
         }
     }
