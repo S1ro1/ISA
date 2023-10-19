@@ -6,5 +6,10 @@ set(CMAKE_CXX_STANDARD 23)
 add_executable(isa_server server.cpp utils/ArgParser.cpp utils/ArgParser.h utils/utils.h utils/TFTPPacket.cpp utils/TFTPPacket.h utils/TFTPServer.cpp utils/TFTPServer.h utils/Connection.cpp utils/Connection.h)
 add_executable(isa_client client.cpp utils/ArgParser.cpp utils/ArgParser.h utils/TFTPPacket.cpp utils/TFTPPacket.h utils/TFTPClient.cpp utils/TFTPClient.h utils/utils.h)
 
+if (DEBUG_LOG)
+    target_compile_definitions(isa_server PUBLIC DEBUG_LOG)
+    target_compile_definitions(isa_client PUBLIC DEBUG_LOG)
+endif ()
+
 target_link_libraries(isa_client -Wl,-ld_classic)
 target_link_libraries(isa_server -Wl,-ld_classic)
