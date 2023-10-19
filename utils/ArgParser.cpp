@@ -8,11 +8,11 @@
 ClientArgs ArgParser::parseClientArgs(char *argv[], int argc) {
     int opt;
 
-    ClientArgs args {
-        .address = std::string(),
-        .port = 69,
-        .src_file_path = std::nullopt,
-        .dst_file_path = std::string(),
+    ClientArgs args{
+            .address = std::string(),
+            .port = 69,
+            .src_file_path = std::nullopt,
+            .dst_file_path = std::string(),
     };
 
     while ((opt = getopt(argc, argv, "h:p:f:t:")) != -1) {
@@ -30,7 +30,6 @@ ClientArgs ArgParser::parseClientArgs(char *argv[], int argc) {
                 args.dst_file_path = optarg;
                 break;
             default:
-                std::cout << opt << std::endl;
                 std::cerr << "Wrong arguments specified" << std::endl;
                 exit(2);
         }
@@ -61,10 +60,11 @@ std::ostream &operator<<(std::ostream &os, const ClientArgs &obj) {
 
     return os;
 }
+
 ServerArgs ArgParser::parseServerArgs(char *argv[], int argc) {
     int opt;
 
-    ServerArgs args {
+    ServerArgs args{
             .port = 69,
             .root_dir = std::string()
     };

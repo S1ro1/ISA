@@ -14,23 +14,25 @@ Connection::Connection(std::string file, OptionsMap options, sockaddr_in client_
     socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
     this->client_address = client_address;
 
-    address = {};
+    connection_address = {};
 
-    memset(&address, 0, sizeof(address));
+    connection_address.sin_family = AF_INET;
+    connection_address.sin_port = htons(0);
+    connection_address.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    address.sin_family = AF_INET;
-    address.sin_port = htons(0);
-    address.sin_addr.s_addr = htonl(INADDR_ANY);
+    bind(socket_fd, (struct sockaddr *) &connection_address, sizeof(connection_address));
 
-    // TODO: Error handling
-    bind(socket_fd, (struct sockaddr *) &address, sizeof(address));
+    socklen_t connection_len = sizeof(connection_address);
+
+    getsockname(socket_fd, (struct sockaddr *) &connection_address, &connection_len);
+
+    connection_port = connection_address.sin_port;
 }
 
 void Connection::serveDownload() {
     std::ifstream input_file(file_path, std::ios::binary);
 
     if (!input_file.is_open()) {
-        std::cout << "File not found" << std::endl;
         return;
     }
 
@@ -38,7 +40,6 @@ void Connection::serveDownload() {
 
     while (state != TFTPState::FINAL_ACK and state != TFTPState::ERROR) {
         std::vector<char> buffer(512);
-        std::cout << "Reading..." << std::endl;
 
         input_file.read(buffer.data(), 512);
 
@@ -52,7 +53,6 @@ void Connection::serveDownload() {
 
         auto packet = receivePacket();
 
-        std::cout << "Received packet..." << std::endl;
 
         auto ack_packet = dynamic_cast<ACKPacket *>(packet.get());
         auto error_packet = dynamic_cast<ErrorPacket *>(packet.get());
@@ -79,11 +79,9 @@ void Connection::serveUpload() {
     std::ofstream output_file(file_path, std::ios::binary);
 
     if (!output_file.is_open()) {
-        std::cout << "File not found" << std::endl;
         return;
     }
 
-    std::cout << file_path << std::endl;
 
     state = TFTPState::RECEIVED_WRQ;
     auto ack_packet = ACKPacket{blkNumber};
@@ -98,25 +96,19 @@ void Connection::serveUpload() {
         auto error_packet = dynamic_cast<ErrorPacket *>(packet.get());
 
         if (error_packet) {
-            std::cout << error_packet->getErrorMsg() << std::endl;
             state = TFTPState::ERROR;
         } else if (!data_packet) {
-            std::cout << "Invalid packet received" << std::endl;
             state = TFTPState::ERROR;
         }
 
         auto data = data_packet->getData();
 
-        std::cout << data_packet->getBlockNumber() << std::endl;
-
         if (data_packet->getBlockNumber() == blkNumber) {
-            std::cout << reinterpret_cast<char *>(data.data()) << std::endl;
             output_file.write(reinterpret_cast<char *>(data.data()), static_cast<long>(data.size()));
 
             blkNumber++;
 
             if (data_packet->getData().size() < 512) {
-                std::cout << "Final block" << std::endl;
                 state = TFTPState::FINAL_ACK;
             }
         }
@@ -124,8 +116,6 @@ void Connection::serveUpload() {
         ack_packet = ACKPacket{blkNumber};
         sendPacket(ack_packet);
     }
-
-    std::cout << "Closing file" << std::endl;
 
     output_file.close();
 }
@@ -149,5 +139,9 @@ std::unique_ptr<TFTPPacket> Connection::receivePacket() {
 
     buffer.resize(received);
 
-    return TFTPPacket::deserialize(buffer);
+    auto packet = TFTPPacket::deserialize(buffer);
+
+    std::cerr << packet->formatPacket(inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port),
+                                      ntohs(connection_port));
+    return packet;
 }

@@ -36,6 +36,9 @@ void TFTPServer::listen() {
         auto rrq_packet = dynamic_cast<RRQPacket *>(packet.get());
         auto wrq_packet = dynamic_cast<WRQPacket *>(packet.get());
 
+        std::cerr << packet->formatPacket(inet_ntoa(from_address.sin_addr), ntohs(from_address.sin_port),
+                                          ntohs(server_address.sin_port));
+
         // TODO: error handling
         if (rrq_packet) {
             auto file_path = root_dir + "/" + rrq_packet->getFilename();
@@ -50,7 +53,6 @@ void TFTPServer::listen() {
             connections.push_back(std::move(connection));
             threads.emplace_back(&Connection::serveUpload, connections.back().get());
         } else {
-            std::cout << "Invalid data received, continuing" << std::endl;
             continue;
         }
     }

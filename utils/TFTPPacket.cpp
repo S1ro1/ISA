@@ -110,6 +110,18 @@ std::unique_ptr<RRQPacket> RRQPacket::deserializeFromData(const std::vector<uint
     return std::make_unique<RRQPacket>(fname, mode, opts);
 }
 
+std::string RRQPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const {
+    std::string result = "RRQ " + src_ip + ":" + std::to_string(port) + " " + "\"" + filename + "\" " + mode;
+
+    if (!options.empty()) {
+        result += " " + formatOptions(options);
+    }
+
+    result += "\n";
+
+    return result;
+}
+
 std::vector<uint8_t> WRQPacket::serialize() const {
     std::vector<uint8_t> output;
 
@@ -153,6 +165,19 @@ std::unique_ptr<WRQPacket> WRQPacket::deserializeFromData(const std::vector<uint
     return std::make_unique<WRQPacket>(fname, mode, opts);
 }
 
+std::string WRQPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const {
+    std::string result = "WRQ " + src_ip + ":" + std::to_string(port) + " " + "\"" + filename + "\" " + mode;
+
+    if (!options.empty()) {
+        result += " " + formatOptions(options);
+    }
+
+    result += "\n";
+
+    return result;
+
+}
+
 std::vector<uint8_t> DataPacket::serialize() const {
     std::vector<uint8_t> output;
 
@@ -181,6 +206,13 @@ std::unique_ptr<DataPacket> DataPacket::deserializeFromData(const std::vector<ui
     return std::make_unique<DataPacket>(blockNum, outData);
 }
 
+std::string DataPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const {
+    std::string result = "DATA " + src_ip + ":" + std::to_string(port) + ":" + std::to_string(dst_port) + " " +
+                         std::to_string(blockNumber) + "\n";
+
+    return result;
+}
+
 std::vector<uint8_t> ACKPacket::serialize() const {
     std::vector<uint8_t> output;
 
@@ -201,6 +233,12 @@ std::unique_ptr<ACKPacket> ACKPacket::deserializeFromData(const std::vector<uint
     uint16_t blockNum = (data[2] << 8) | data[3];
 
     return std::make_unique<ACKPacket>(blockNum);
+}
+
+std::string ACKPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const {
+    std::string result = "ACK " + src_ip + ":" + std::to_string(port) + " " + std::to_string(blockNumber) + "\n";
+
+    return result;
 }
 
 std::vector<uint8_t> ErrorPacket::serialize() const {
@@ -237,6 +275,14 @@ std::unique_ptr<ErrorPacket> ErrorPacket::deserializeFromData(const std::vector<
     return std::make_unique<ErrorPacket>(errorCode, errorMessage);
 }
 
+std::string ErrorPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const {
+    std::string result =
+            "ERROR " + src_ip + ":" + std::to_string(port) + " " + std::to_string(errorCode) + " " + "\"" + errorMsg +
+            "\"\n";
+
+    return result;
+}
+
 std::vector<uint8_t> OACKPacket::serialize() const {
     std::vector<uint8_t> output;
 
@@ -267,4 +313,10 @@ std::unique_ptr<OACKPacket> OACKPacket::deserializeFromData(const std::vector<ui
 
     return std::make_unique<OACKPacket>(opts);
 
+}
+
+std::string OACKPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const {
+    std::string result = "OACK " + src_ip + ":" + std::to_string(port) + " " + formatOptions(options) + "\n";
+
+    return result;
 }

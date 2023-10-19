@@ -22,6 +22,10 @@
 class TFTPClient {
     int socket_fd;
     sockaddr_in server_address;
+    sockaddr_in client_address;
+
+    uint16_t client_port;
+
     TFTPState state;
     std::string transmissionMode = "octet";
 

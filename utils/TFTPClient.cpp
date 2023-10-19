@@ -16,6 +16,21 @@ void TFTPClient::transmit() {
 
 TFTPClient::TFTPClient(const ClientArgs &args) {
     socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+    client_address = {};
+
+    client_address.sin_family = AF_INET;
+    client_address.sin_port = htons(0);
+    client_address.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    socklen_t client_len = sizeof(client_address);
+
+    bind(socket_fd, (struct sockaddr *) &client_address, client_len);
+
+    getsockname(socket_fd, (struct sockaddr *) &client_address, &client_len);
+
+    client_port = client_address.sin_port;
+
     dst_file_path = args.dst_file_path;
     state = TFTPState::INIT;
 
@@ -60,15 +75,17 @@ std::unique_ptr<TFTPPacket> TFTPClient::receivePacket() {
 
     if (state == TFTPState::SENT_RRQ || state == TFTPState::SENT_WRQ) server_address.sin_port = from_address.sin_port;
 
-    std::cout << "Received " << received << " bytes" << std::endl;
-
     buffer.resize(received);
 
-    return TFTPPacket::deserialize(buffer);
+    auto packet = TFTPPacket::deserialize(buffer);
+
+    std::cerr << packet->formatPacket(inet_ntoa(from_address.sin_addr), ntohs(from_address.sin_port),
+                                      ntohs(client_port));
+
+    return packet;
 }
 
 void TFTPClient::handleDataPacket(std::ofstream &outputFile, DataPacket *data_packet) {
-    std::cout << "Received data packet" << std::endl;
     uint16_t blockNumber = data_packet->getBlockNumber();
     ACKPacket ack(blockNumber);
     sendPacket(ack);
@@ -76,16 +93,12 @@ void TFTPClient::handleDataPacket(std::ofstream &outputFile, DataPacket *data_pa
     std::vector<uint8_t> data = data_packet->getData();
 
     if (data.size() < 512) {
-        std::cout << "Less than 512 bytes received, final ack" << std::endl;
         state = TFTPState::FINAL_ACK;
     }
-    std::cout << "Writing..." << std::endl;
     outputFile.write(reinterpret_cast<char *>(data.data()), static_cast<long>(data.size()));
 }
 
 void TFTPClient::requestRead() {
-    std::cout << "Requesting read" << std::endl;
-    std::cout << "Opening file " << dst_file_path << std::endl;
     std::ofstream outputFile(dst_file_path, std::ios::binary);
 
     // TODO: error handling
@@ -98,16 +111,12 @@ void TFTPClient::requestRead() {
 
     auto packet = receivePacket();
 
-    std::cout << "Received packet" << std::endl;
-
     auto oack_packet = dynamic_cast<OACKPacket *>(packet.get());
     auto data_packet = dynamic_cast<DataPacket *>(packet.get());
 
     if (oack_packet) {
-        std::cout << "Received first OACK packet" << std::endl;
         opts = oack_packet->getOptions();
     } else if (data_packet) {
-        std::cout << "Received first data packet" << std::endl;
         opts = OptionsMap{};
         handleDataPacket(outputFile, data_packet);
     } else {
@@ -117,7 +126,6 @@ void TFTPClient::requestRead() {
     }
 
     while (state != TFTPState::FINAL_ACK) {
-        std::cout << "Here?" << std::endl;
         auto packet = receivePacket();
 
         auto data_packet = dynamic_cast<DataPacket *>(packet.get());
@@ -158,7 +166,6 @@ void TFTPClient::requestWrite() {
 
     } else if (err_packet) {
         state = TFTPState::ERROR;
-        std::cout << err_packet->getErrorMsg() << std::endl;
         return;
     } else {
         state = TFTPState::ERROR;

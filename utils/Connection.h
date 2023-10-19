@@ -21,8 +21,9 @@
 
 class Connection {
     int socket_fd;
-    sockaddr_in address;
+    sockaddr_in connection_address;
     sockaddr_in client_address;
+    uint16_t connection_port;
 
     TFTPState state;
     Mode mode;
