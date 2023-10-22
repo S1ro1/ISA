@@ -43,6 +43,10 @@ public:
     void serveDownload();
 
     void serveUpload();
+
+    ~Connection() {
+        close(socket_fd);
+    }
 };
 
 
