@@ -5,6 +5,9 @@
 #include "TFTPClient.h"
 #include <iomanip>
 
+#include <chrono>
+#include <thread>
+
 void TFTPClient::transmit() {
   if (mode == Mode::DOWNLOAD) {
     requestRead();
@@ -175,6 +178,8 @@ void TFTPClient::requestWrite() {
   uint16_t blockNumber = 1;
 
   while (state != TFTPState::FINAL_ACK && state != TFTPState::ERROR) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
     // TODO: check with options
     std::vector<uint8_t> data(512);
 
@@ -195,6 +200,7 @@ void TFTPClient::requestWrite() {
       return;
     }
     blockNumber++;
+
 
     if (bytesRead < 512) state = TFTPState::FINAL_ACK;
   }

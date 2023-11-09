@@ -4,8 +4,6 @@
 
 #include "Connection.h"
 
-#include <utility>
-
 Connection::Connection(std::string file, OptionsMap options, sockaddr_in client_address) {
   this->file_path = std::move(file);
   this->opts = std::move(options);
@@ -51,7 +49,13 @@ void Connection::serveDownload() {
 
     sendPacket(data_packet);
 
-    auto packet = receivePacket();
+    std::unique_ptr<TFTPPacket> packet;
+    try {
+      packet = receivePacket();
+    } catch (std::runtime_error &e) {
+      state = TFTPState::ERROR;
+      break;
+    }
 
 
     auto ack_packet = dynamic_cast<ACKPacket *>(packet.get());
@@ -80,7 +84,6 @@ void Connection::serveUpload() {
     return;
   }
 
-
   state = TFTPState::RECEIVED_WRQ;
   auto ack_packet = ACKPacket{blkNumber};
   sendPacket(ack_packet);
@@ -88,7 +91,13 @@ void Connection::serveUpload() {
 
   while (state != TFTPState::FINAL_ACK and state != TFTPState::ERROR) {
 
-    auto packet = receivePacket();
+    std::unique_ptr<TFTPPacket> packet;
+    try {
+      packet = receivePacket();
+    } catch (std::runtime_error &e) {
+      state = TFTPState::ERROR;
+      break;
+    }
 
     auto data_packet = dynamic_cast<DataPacket *>(packet.get());
     auto error_packet = dynamic_cast<ErrorPacket *>(packet.get());
@@ -126,10 +135,6 @@ void Connection::sendPacket(const TFTPPacket &packet) {
   ssize_t sent = sendto(socket_fd, data.data(), data.size(), 0, (struct sockaddr *) &client_address,
                         sizeof(client_address));
 
-  if (sent < 0) {
-    std::cout << "Error sending packet" << std::endl;
-    std::cout << strerror(errno) << std::endl;
-  }
 }
 
 std::unique_ptr<TFTPPacket> Connection::receivePacket() {
@@ -140,7 +145,13 @@ std::unique_ptr<TFTPPacket> Connection::receivePacket() {
   ssize_t received = recvfrom(socket_fd, buffer.data(), buffer.size(), 0, (struct sockaddr *) &client_address,
                               &from_length);
 
-  buffer.resize(received);
+  // TODO: Check this outside of the scope
+  if (received <= 0) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+    } else {
+      throw std::runtime_error("Error while receiving packet");
+    }
+  }
 
   auto packet = TFTPPacket::deserialize(buffer);
 

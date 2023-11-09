@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
+#include <utility>
 
 #include "ArgParser.h"
 #include "TFTPPacket.h"
@@ -45,6 +46,7 @@ public:
   void serveUpload();
 
   ~Connection() {
+    LOG("Closing connection...");
     close(socket_fd);
   }
 };

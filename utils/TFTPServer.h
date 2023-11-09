@@ -13,11 +13,13 @@
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
+#include <csignal>
 
 #include "ArgParser.h"
 #include "Connection.h"
 #include "TFTPPacket.h"
 #include "utils.h"
+
 
 class TFTPServer {
   int main_socket_fd;
@@ -31,6 +33,7 @@ public:
   explicit TFTPServer(const ServerArgs &args);
 
   ~TFTPServer() {
+    LOG("Closing server...");
     close(main_socket_fd);
   }
 

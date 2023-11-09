@@ -4,7 +4,15 @@
 
 #include "TFTPServer.h"
 
+volatile sig_atomic_t running = 1;
+
+void siginthandler(int signum) {
+  running = 0;
+  LOG("SIGINT received, shutting down...");
+}
+
 TFTPServer::TFTPServer(const ServerArgs &args) {
+  signal(SIGINT, siginthandler);
   main_socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
   root_dir = args.root_dir;
 
@@ -15,13 +23,18 @@ TFTPServer::TFTPServer(const ServerArgs &args) {
   server_address.sin_family = AF_INET;
   server_address.sin_port = htons(args.port);
 
+  struct timeval read_timeout;
+  read_timeout.tv_sec = 0;
+  read_timeout.tv_usec = 100;
+  setsockopt(main_socket_fd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
+
   // TODO: error handling
   bind(main_socket_fd, (struct sockaddr *) &server_address, sizeof(server_address));
 }
 
 void TFTPServer::listen() {
   std::vector<std::unique_ptr<Connection>> connections;
-  while (true) {
+  while (running) {
     std::vector<uint8_t> buffer(65535);
 
     sockaddr_in from_address = {};
@@ -30,6 +43,10 @@ void TFTPServer::listen() {
 
     ssize_t received = recvfrom(main_socket_fd, buffer.data(), buffer.size(), 0, (struct sockaddr *) &from_address,
                                 &from_length);
+
+    if (received <= 0) {
+      continue;
+    }
 
     auto packet = TFTPPacket::deserialize(buffer);
     auto rrq_packet = dynamic_cast<RRQPacket *>(packet.get());
