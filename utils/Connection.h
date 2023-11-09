@@ -14,6 +14,7 @@
 #include <thread>
 #include <unistd.h>
 #include <utility>
+#include <filesystem>
 
 #include "ArgParser.h"
 #include "TFTPPacket.h"
@@ -37,6 +38,8 @@ class Connection {
   void sendPacket(const TFTPPacket &packet);
 
   std::unique_ptr<TFTPPacket> receivePacket();
+
+  std::optional<ErrorPacket> errorPacket;
 
 public:
   Connection(std::string file_path, OptionsMap options, sockaddr_in client_address);

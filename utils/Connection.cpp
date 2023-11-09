@@ -25,16 +25,18 @@ Connection::Connection(std::string file, OptionsMap options, sockaddr_in client_
   getsockname(socket_fd, (struct sockaddr *) &connection_address, &connection_len);
 
   connection_port = connection_address.sin_port;
+
+  errorPacket = std::nullopt;
 }
 
 void Connection::serveDownload() {
+  state = TFTPState::RECEIVED_RRQ;
   std::ifstream input_file(file_path, std::ios::binary);
 
   if (!input_file.is_open()) {
-    return;
+    errorPacket = std::optional(ErrorPacket{1, "File not found"});
+    state = TFTPState::ERROR;
   }
-
-  state = TFTPState::RECEIVED_RRQ;
 
   while (state != TFTPState::FINAL_ACK and state != TFTPState::ERROR) {
     std::vector<char> buffer(512);
@@ -75,16 +77,20 @@ void Connection::serveDownload() {
   }
 
   input_file.close();
+
+  if (errorPacket.has_value()) {
+    sendPacket(*errorPacket);
+  }
 }
 
 void Connection::serveUpload() {
-  std::ofstream output_file(file_path, std::ios::binary);
-
-  if (!output_file.is_open()) {
-    return;
+  state = TFTPState::RECEIVED_WRQ;
+  if (std::filesystem::exists(file_path)) {
+    errorPacket = std::optional(ErrorPacket{6, "File already exists"});
+    state = TFTPState::ERROR;
   }
 
-  state = TFTPState::RECEIVED_WRQ;
+  std::ofstream output_file(file_path, std::ios::binary);
 
   while (state != TFTPState::FINAL_ACK and state != TFTPState::ERROR) {
     auto ack_packet = ACKPacket{blkNumber};
@@ -120,8 +126,12 @@ void Connection::serveUpload() {
     }
 
   }
-  auto ack_packet = ACKPacket{blkNumber};
-  sendPacket(ack_packet);
+  if (errorPacket.has_value()) {
+    sendPacket(*errorPacket);
+  } else {
+    auto ack_packet = ACKPacket{blkNumber};
+    sendPacket(ack_packet);
+  }
 
   output_file.close();
 }
