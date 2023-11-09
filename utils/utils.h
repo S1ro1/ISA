@@ -6,18 +6,18 @@
 #define ISA_PROJECT_UTILS_H
 
 enum class TFTPState {
-    INIT,
-    SENT_RRQ,
-    RECEIVED_RRQ,
-    SENT_WRQ,
-    RECEIVED_WRQ,
-    FINAL_ACK,
-    ERROR
+  INIT,
+  SENT_RRQ,
+  RECEIVED_RRQ,
+  SENT_WRQ,
+  RECEIVED_WRQ,
+  FINAL_ACK,
+  ERROR
 };
 
 enum class Mode {
-    DOWNLOAD,
-    UPLOAD,
+  DOWNLOAD,
+  UPLOAD,
 };
 
 #ifdef DEBUG_LOG
@@ -26,4 +26,4 @@ enum class Mode {
 #define LOG(x)
 #endif
 
-#endif //ISA_PROJECT_UTILS_H
+#endif//ISA_PROJECT_UTILS_H

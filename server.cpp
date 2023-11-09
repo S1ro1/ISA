@@ -4,11 +4,11 @@
 #include "utils/TFTPServer.h"
 
 int main(int argc, char *argv[]) {
-    ServerArgs args = ArgParser::parseServerArgs(argv, argc);
+  ServerArgs args = ArgParser::parseServerArgs(argv, argc);
 
-    TFTPServer server{args};
+  TFTPServer server{args};
 
-    server.listen();
+  server.listen();
 
-    return 0;
+  return 0;
 }

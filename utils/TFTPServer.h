@@ -5,38 +5,38 @@
 #ifndef ISA_PROJECT_TFTPSERVER_H
 #define ISA_PROJECT_TFTPSERVER_H
 
-#include <netinet/in.h>
-#include <sys/socket.h>
 #include <arpa/inet.h>
-#include <unistd.h>
-#include <string>
 #include <fstream>
 #include <iostream>
+#include <netinet/in.h>
+#include <string>
+#include <sys/socket.h>
 #include <thread>
+#include <unistd.h>
 
-#include "TFTPPacket.h"
 #include "ArgParser.h"
-#include "utils.h"
 #include "Connection.h"
+#include "TFTPPacket.h"
+#include "utils.h"
 
 class TFTPServer {
-    int main_socket_fd;
-    sockaddr_in server_address;
-    std::string root_dir;
+  int main_socket_fd;
+  sockaddr_in server_address;
+  std::string root_dir;
 
-    std::vector<std::jthread> threads;
+  std::vector<std::jthread> threads;
 
 
 public:
-    explicit TFTPServer(const ServerArgs &args);
+  explicit TFTPServer(const ServerArgs &args);
 
-    ~TFTPServer() {
-        close(main_socket_fd);
-    }
+  ~TFTPServer() {
+    close(main_socket_fd);
+  }
 
 
-    void listen();
+  void listen();
 };
 
 
-#endif //ISA_PROJECT_TFTPSERVER_H
+#endif//ISA_PROJECT_TFTPSERVER_H

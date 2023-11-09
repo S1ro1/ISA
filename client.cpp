@@ -4,11 +4,11 @@
 #include "utils/TFTPClient.h"
 
 int main(int argc, char *argv[]) {
-    ClientArgs args = ArgParser::parseClientArgs(argv, argc);
+  ClientArgs args = ArgParser::parseClientArgs(argv, argc);
 
-    TFTPClient client{args};
+  TFTPClient client{args};
 
-    client.transmit();
+  client.transmit();
 
-    return 0;
+  return 0;
 }

@@ -5,38 +5,38 @@
 #ifndef ISA_PROJECT_ARGPARSER_H
 #define ISA_PROJECT_ARGPARSER_H
 
-#include <string>
-#include <optional>
-#include <iostream>
 #include <cstring>
+#include <iostream>
+#include <optional>
+#include <string>
 
 #include <unistd.h>
 
 struct ClientArgs {
-    std::string address;
-    uint32_t port;
+  std::string address;
+  uint32_t port;
 
-    std::optional<std::string> src_file_path;
-    std::string dst_file_path;
+  std::optional<std::string> src_file_path;
+  std::string dst_file_path;
 
 public:
-    friend std::ostream &operator<<(std::ostream &os, const ClientArgs &obj);
+  friend std::ostream &operator<<(std::ostream &os, const ClientArgs &obj);
 };
 
 struct ServerArgs {
-    uint32_t port;
-    std::string root_dir;
+  uint32_t port;
+  std::string root_dir;
 
 public:
-    friend std::ostream &operator<<(std::ostream &os, const ServerArgs &obj);
+  friend std::ostream &operator<<(std::ostream &os, const ServerArgs &obj);
 };
 
 class ArgParser {
 public:
-    static ClientArgs parseClientArgs(char *argv[], int argc);
+  static ClientArgs parseClientArgs(char *argv[], int argc);
 
-    static ServerArgs parseServerArgs(char *argv[], int argc);
+  static ServerArgs parseServerArgs(char *argv[], int argc);
 };
 
 
-#endif //ISA_PROJECT_ARGPARSER_H
+#endif//ISA_PROJECT_ARGPARSER_H

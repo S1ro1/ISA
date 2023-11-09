@@ -5,55 +5,55 @@
 #ifndef ISA_PROJECT_TFTPCLIENT_H
 #define ISA_PROJECT_TFTPCLIENT_H
 
-#include <netinet/in.h>
-#include <sys/socket.h>
 #include <arpa/inet.h>
-#include <unistd.h>
-#include <string>
+#include <cstring>
 #include <fstream>
 #include <iostream>
-#include <cstring>
+#include <netinet/in.h>
+#include <string>
+#include <sys/socket.h>
+#include <unistd.h>
 
-#include "TFTPPacket.h"
 #include "ArgParser.h"
+#include "TFTPPacket.h"
 #include "utils.h"
 
 
 class TFTPClient {
-    int socket_fd;
-    sockaddr_in server_address;
-    sockaddr_in client_address;
+  int socket_fd;
+  sockaddr_in server_address;
+  sockaddr_in client_address;
 
-    uint16_t client_port;
+  uint16_t client_port;
 
-    TFTPState state;
-    std::string transmissionMode = "octet";
+  TFTPState state;
+  std::string transmissionMode = "octet";
 
-    Mode mode;
-    std::string src_file_path;
-    std::string dst_file_path;
+  Mode mode;
+  std::string src_file_path;
+  std::string dst_file_path;
 
-    OptionsMap opts;
+  OptionsMap opts;
 
-    void sendPacket(const TFTPPacket &packet);
+  void sendPacket(const TFTPPacket &packet);
 
-    std::unique_ptr<TFTPPacket> receivePacket();
+  std::unique_ptr<TFTPPacket> receivePacket();
 
 public:
-    explicit TFTPClient(const ClientArgs &args);
+  explicit TFTPClient(const ClientArgs &args);
 
-    ~TFTPClient() {
-        close(socket_fd);
-    }
+  ~TFTPClient() {
+    close(socket_fd);
+  }
 
-    void transmit();
+  void transmit();
 
-    void requestRead();
+  void requestRead();
 
-    void requestWrite();
+  void requestWrite();
 
-    void handleDataPacket(std::ofstream &outputFile, DataPacket *data_packet);
+  void handleDataPacket(std::ofstream &outputFile, DataPacket *data_packet);
 };
 
 
-#endif //ISA_PROJECT_TFTPCLIENT_H
+#endif//ISA_PROJECT_TFTPCLIENT_H
