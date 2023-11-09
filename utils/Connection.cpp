@@ -148,10 +148,13 @@ std::unique_ptr<TFTPPacket> Connection::receivePacket() {
   // TODO: Check this outside of the scope
   if (received <= 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK) {
+      // handle timeout
     } else {
       throw std::runtime_error("Error while receiving packet");
     }
   }
+
+  buffer.resize(received);
 
   auto packet = TFTPPacket::deserialize(buffer);
 
