@@ -85,11 +85,11 @@ void Connection::serveUpload() {
   }
 
   state = TFTPState::RECEIVED_WRQ;
-  auto ack_packet = ACKPacket{blkNumber};
-  sendPacket(ack_packet);
-  blkNumber++;
 
   while (state != TFTPState::FINAL_ACK and state != TFTPState::ERROR) {
+    auto ack_packet = ACKPacket{blkNumber};
+    sendPacket(ack_packet);
+    blkNumber++;
 
     std::unique_ptr<TFTPPacket> packet;
     try {
@@ -119,10 +119,9 @@ void Connection::serveUpload() {
       }
     }
 
-    ack_packet = ACKPacket{blkNumber};
-    sendPacket(ack_packet);
-    blkNumber++;
   }
+  auto ack_packet = ACKPacket{blkNumber};
+  sendPacket(ack_packet);
 
   output_file.close();
 }
