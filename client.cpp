@@ -6,7 +6,7 @@
 int main(int argc, char *argv[]) {
   ClientArgs args = ArgParser::parseClientArgs(argv, argc);
 
-  OptionsMap opts {512, 5, 0};
+  OptionsMap opts {65500, 15, 100};
 
   TFTPClient client{args, opts};
 

@@ -34,11 +34,11 @@ void Connection::serveDownload() {
   }
 
   while (mState != TFTPState::FINAL_ACK and mState != TFTPState::ERROR) {
-    std::vector<char> buffer(512);
+    std::vector<char> buffer(65500);
 
-    input_file.read(buffer.data(), 512);
+    input_file.read(buffer.data(), mOptions.mBlksize.first);
 
-    if (input_file.gcount() < 512) {
+    if (input_file.gcount() < mOptions.mBlksize.first) {
       buffer.resize(input_file.gcount());
     }
 
@@ -114,7 +114,7 @@ void Connection::serveUpload() {
       output_file.write(reinterpret_cast<char *>(data.data()), static_cast<long>(data.size()));
 
 
-      if (data_packet->getData().size() < 512) {
+      if (data_packet->getData().size() < mOptions.mBlksize.first) {
         mState = TFTPState::FINAL_ACK;
       }
     }

@@ -60,7 +60,6 @@ void TFTPClient::sendPacket(const TFTPPacket &packet) {
   ssize_t sent = sendto(socket_fd, data.data(), data.size(), 0, (struct sockaddr *) &server_address,
                         sizeof(server_address));
 
-
   // TODO: error handling
 }
 
@@ -95,7 +94,7 @@ void TFTPClient::handleDataPacket(std::ofstream &outputFile, DataPacket *data_pa
 
   std::vector<uint8_t> data = data_packet->getData();
 
-  if (data.size() < 512) {
+  if (data.size() < opts.mBlksize.first) {
     state = TFTPState::FINAL_ACK;
   }
   outputFile.write(reinterpret_cast<char *>(data.data()), static_cast<long>(data.size()));
@@ -180,9 +179,9 @@ void TFTPClient::requestWrite() {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     // TODO: check with options
-    std::vector<uint8_t> data(512);
+    std::vector<uint8_t> data(opts.mBlksize.first);
 
-    std::cin.read(reinterpret_cast<char *>(data.data()), static_cast<long>(data.size()));
+    std::cin.read(reinterpret_cast<char *>(data.data()), static_cast<long>(opts.mBlksize.first));
     size_t bytesRead = std::cin.gcount();
 
     if (bytesRead < data.size()) data.resize(bytesRead);
@@ -201,6 +200,6 @@ void TFTPClient::requestWrite() {
     blockNumber++;
 
 
-    if (bytesRead < 512) state = TFTPState::FINAL_ACK;
+    if (bytesRead < opts.mBlksize.first) state = TFTPState::FINAL_ACK;
   }
 }

@@ -41,6 +41,10 @@ std::vector<uint8_t> RRQPacket::serialize() const {
 
   output.push_back(0);
 
+  auto opts = options.serialize();
+
+  output.insert(output.end(), opts.begin(), opts.end());
+
   return output;
 }
 
@@ -63,6 +67,7 @@ std::unique_ptr<RRQPacket> RRQPacket::deserializeFromData(const std::vector<uint
   idx++;
 
   OptionsMap opts = OptionsMap(data, idx);
+
 
   return std::make_unique<RRQPacket>(fname, mode, opts);
 }
@@ -93,6 +98,10 @@ std::vector<uint8_t> WRQPacket::serialize() const {
   }
 
   output.push_back(0);
+
+  auto opts = options.serialize();
+
+  output.insert(output.end(), opts.begin(), opts.end());
 
   return output;
 }
@@ -241,42 +250,10 @@ std::vector<uint8_t> OACKPacket::serialize() const {
   output.push_back(0);
   output.push_back(6);
 
-  std::array<std::string, 3> keys {"blksize", "timeout", "tsize" };
+  auto opts = options.serialize();
 
-  std::string currValue;
+  output.insert(output.end(), opts.begin(), opts.end());
 
-  for (auto &key : keys) {
-
-    if (key == "blksize") {
-      if (options.mBlksize.second) {
-        currValue = std::to_string(options.mBlksize.first);
-      } else {
-        continue;
-      }
-    } else if (key == "timeout") {
-      if (options.mTimeout.second) {
-        currValue = std::to_string(options.mTimeout.first);
-      } else {
-        continue;
-      }
-    } else if (key == "tsize") {
-      if (options.mTsize.second) {
-        currValue = std::to_string(options.mTsize.first);
-      } else {
-        continue;
-      }
-    }
-
-    for (auto c: key) {
-      output.push_back(static_cast<uint8_t>(c));
-    }
-
-    output.push_back(0);
-
-    for (auto c: currValue) {
-      output.push_back(static_cast<uint8_t>(c));
-    }
-  }
   return output;
 }
 
@@ -293,6 +270,7 @@ std::string OACKPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t
 
   return result;
 }
+
 OptionsMap::OptionsMap(const std::vector<uint8_t> &data, size_t start) {
   const std::set<std::string> validOptions = {
           "blksize",
@@ -303,11 +281,12 @@ OptionsMap::OptionsMap(const std::vector<uint8_t> &data, size_t start) {
   mBlksize = std::pair{512, false};
   mTsize = std::pair{0, false};
 
+
   std::string key, value;
   bool isKey = true;
   int intVal;
 
-  for (size_t i = start; i < data.size() && data[i]; ++i) {
+  for (size_t i = start; i < data.size(); i++) {
     if (data[i] == 0) {
       if (isKey) {
         key = value;
@@ -337,4 +316,48 @@ OptionsMap::OptionsMap(const std::vector<uint8_t> &data, size_t start) {
       value += static_cast<char>(data[i]);
     }
   }
+}
+
+std::vector<uint8_t> OptionsMap::serialize() const {
+  std::vector<uint8_t> output;
+  std::array<std::string, 3> keys {"blksize", "timeout", "tsize" };
+
+  std::string currValue;
+
+  for (auto &key : keys) {
+
+    if (key == "blksize") {
+      if (mBlksize.second) {
+        currValue = std::to_string(mBlksize.first);
+      } else {
+        continue;
+      }
+    } else if (key == "timeout") {
+      if (mTimeout.second) {
+        currValue = std::to_string(mTimeout.first);
+      } else {
+        continue;
+      }
+    } else if (key == "tsize") {
+      if (mTsize.second) {
+        currValue = std::to_string(mTsize.first);
+      } else {
+        continue;
+      }
+    }
+
+    for (auto c: key) {
+      output.push_back(static_cast<uint8_t>(c));
+    }
+    output.push_back(0);
+
+    for (auto c: currValue) {
+      output.push_back(static_cast<uint8_t>(c));
+    }
+
+    output.push_back(0);
+  }
+
+  std::string outputString(output.begin(), output.end());
+  return output;
 }

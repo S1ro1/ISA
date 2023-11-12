@@ -46,6 +46,8 @@ void TFTPServer::listen() {
     if (received <= 0) {
       continue;
     }
+    buffer.resize(received);
+
 
     auto packet = TFTPPacket::deserialize(buffer);
     auto rrq_packet = dynamic_cast<RRQPacket *>(packet.get());

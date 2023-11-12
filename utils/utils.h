@@ -5,6 +5,8 @@
 #ifndef ISA_PROJECT_UTILS_H
 #define ISA_PROJECT_UTILS_H
 
+#include <iostream>
+
 enum class TFTPState {
   INIT,
   SENT_RRQ,

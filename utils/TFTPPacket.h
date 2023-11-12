@@ -13,6 +13,8 @@
 #include <vector>
 #include <array>
 
+#include "utils.h"
+
 struct OptionsMap {
   std::pair<int, bool> mBlksize;
   std::pair<int, bool> mTimeout;
@@ -23,16 +25,18 @@ struct OptionsMap {
                                                     mTsize(std::pair{tsize, true}) {}
   OptionsMap(const std::vector<uint8_t> &data, size_t start);
 
+  [[nodiscard]] std::vector<uint8_t> serialize() const;
+
   [[nodiscard]] std::string format() const {
     std::string result;
     if (mBlksize.second) {
-      result += "blksize=" + std::to_string(mBlksize.first) + "\0";
+      result += "blksize=" + std::to_string(mBlksize.first) + " ";
     }
     if (mTimeout.second) {
-      result += "timeout=" + std::to_string(mTimeout.first) + "\0";
+      result += "timeout=" + std::to_string(mTimeout.first) + " ";
     }
     if (mTsize.second) {
-      result += "tsize=" + std::to_string(mTsize.first) + "\0";
+      result += "tsize=" + std::to_string(mTsize.first) + " ";
     }
     return result;
   }
