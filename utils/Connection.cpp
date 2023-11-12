@@ -16,6 +16,12 @@ Connection::Connection(std::string file, OptionsMap options, sockaddr_in client_
   mConnectionAddr.sin_port = htons(0);
   mConnectionAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
+  struct timeval read_timeout;
+  read_timeout.tv_sec = mOptions.mTimeout.first;
+  read_timeout.tv_usec = 0;
+
+  setsockopt(mSocketFd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
+
   bind(mSocketFd, (struct sockaddr *) &mConnectionAddr, sizeof(mConnectionAddr));
   socklen_t connection_len = sizeof(mConnectionAddr);
   getsockname(mSocketFd, (struct sockaddr *) &mConnectionAddr, &connection_len);
