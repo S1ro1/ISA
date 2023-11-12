@@ -5,40 +5,40 @@
 #include "Connection.h"
 
 Connection::Connection(std::string file, OptionsMap options, sockaddr_in client_address) {
-  this->file_path = std::move(file);
-  this->opts = std::move(options);
+  this->mFilePath = std::move(file);
+  this->mOptions = std::move(options);
 
-  state = TFTPState::INIT;
-  socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
-  this->client_address = client_address;
+  mState = TFTPState::INIT;
+  mSocketFd = socket(AF_INET, SOCK_DGRAM, 0);
+  mClientAddr = client_address;
 
-  connection_address = {};
+  mConnectionAddr = {};
 
-  connection_address.sin_family = AF_INET;
-  connection_address.sin_port = htons(0);
-  connection_address.sin_addr.s_addr = htonl(INADDR_ANY);
+  mConnectionAddr.sin_family = AF_INET;
+  mConnectionAddr.sin_port = htons(0);
+  mConnectionAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-  bind(socket_fd, (struct sockaddr *) &connection_address, sizeof(connection_address));
+  bind(mSocketFd, (struct sockaddr *) &mConnectionAddr, sizeof(mConnectionAddr));
 
-  socklen_t connection_len = sizeof(connection_address);
+  socklen_t connection_len = sizeof(mConnectionAddr);
 
-  getsockname(socket_fd, (struct sockaddr *) &connection_address, &connection_len);
+  getsockname(mSocketFd, (struct sockaddr *) &mConnectionAddr, &connection_len);
 
-  connection_port = connection_address.sin_port;
+  mConnectionPort = mConnectionAddr.sin_port;
 
   errorPacket = std::nullopt;
 }
 
 void Connection::serveDownload() {
-  state = TFTPState::RECEIVED_RRQ;
-  std::ifstream input_file(file_path, std::ios::binary);
+  mState = TFTPState::RECEIVED_RRQ;
+  std::ifstream input_file(mFilePath, std::ios::binary);
 
   if (!input_file.is_open()) {
     errorPacket = std::optional(ErrorPacket{1, "File not found"});
-    state = TFTPState::ERROR;
+    mState = TFTPState::ERROR;
   }
 
-  while (state != TFTPState::FINAL_ACK and state != TFTPState::ERROR) {
+  while (mState != TFTPState::FINAL_ACK and mState != TFTPState::ERROR) {
     std::vector<char> buffer(512);
 
     input_file.read(buffer.data(), 512);
@@ -47,7 +47,7 @@ void Connection::serveDownload() {
       buffer.resize(input_file.gcount());
     }
 
-    DataPacket data_packet{blkNumber, std::vector<uint8_t>(buffer.begin(), buffer.end())};
+    DataPacket data_packet{mBlockNumber, std::vector<uint8_t>(buffer.begin(), buffer.end())};
 
     sendPacket(data_packet);
 
@@ -55,24 +55,23 @@ void Connection::serveDownload() {
     try {
       packet = receivePacket();
     } catch (std::runtime_error &e) {
-      state = TFTPState::ERROR;
+      mState = TFTPState::ERROR;
       break;
     }
-
 
     auto ack_packet = dynamic_cast<ACKPacket *>(packet.get());
     auto error_packet = dynamic_cast<ErrorPacket *>(packet.get());
 
     if (ack_packet) {
-      if (ack_packet->getBlockNumber() == blkNumber) {
-        blkNumber++;
+      if (ack_packet->getBlockNumber() == mBlockNumber) {
+        mBlockNumber++;
       }
 
       if (input_file.eof()) {
-        state = TFTPState::FINAL_ACK;
+        mState = TFTPState::FINAL_ACK;
       }
     } else if (error_packet) {
-      state = TFTPState::ERROR;
+      mState = TFTPState::ERROR;
     }
   }
 
@@ -84,24 +83,24 @@ void Connection::serveDownload() {
 }
 
 void Connection::serveUpload() {
-  state = TFTPState::RECEIVED_WRQ;
-  if (std::filesystem::exists(file_path)) {
+  mState = TFTPState::RECEIVED_WRQ;
+  if (std::filesystem::exists(mFilePath)) {
     errorPacket = std::optional(ErrorPacket{6, "File already exists"});
-    state = TFTPState::ERROR;
+    mState = TFTPState::ERROR;
   }
 
-  std::ofstream output_file(file_path, std::ios::binary);
+  std::ofstream output_file(mFilePath, std::ios::binary);
 
-  while (state != TFTPState::FINAL_ACK and state != TFTPState::ERROR) {
-    auto ack_packet = ACKPacket{blkNumber};
+  while (mState != TFTPState::FINAL_ACK and mState != TFTPState::ERROR) {
+    auto ack_packet = ACKPacket{mBlockNumber};
     sendPacket(ack_packet);
-    blkNumber++;
+    mBlockNumber++;
 
     std::unique_ptr<TFTPPacket> packet;
     try {
       packet = receivePacket();
     } catch (std::runtime_error &e) {
-      state = TFTPState::ERROR;
+      mState = TFTPState::ERROR;
       break;
     }
 
@@ -109,19 +108,19 @@ void Connection::serveUpload() {
     auto error_packet = dynamic_cast<ErrorPacket *>(packet.get());
 
     if (error_packet) {
-      state = TFTPState::ERROR;
+      mState = TFTPState::ERROR;
     } else if (!data_packet) {
-      state = TFTPState::ERROR;
+      mState = TFTPState::ERROR;
     }
 
     auto data = data_packet->getData();
 
-    if (data_packet->getBlockNumber() == blkNumber) {
+    if (data_packet->getBlockNumber() == mBlockNumber) {
       output_file.write(reinterpret_cast<char *>(data.data()), static_cast<long>(data.size()));
 
 
       if (data_packet->getData().size() < 512) {
-        state = TFTPState::FINAL_ACK;
+        mState = TFTPState::FINAL_ACK;
       }
     }
 
@@ -129,7 +128,7 @@ void Connection::serveUpload() {
   if (errorPacket.has_value()) {
     sendPacket(*errorPacket);
   } else {
-    auto ack_packet = ACKPacket{blkNumber};
+    auto ack_packet = ACKPacket{mBlockNumber};
     sendPacket(ack_packet);
   }
 
@@ -141,17 +140,17 @@ void Connection::sendPacket(const TFTPPacket &packet) {
 
 
   // TODO: Error handling
-  ssize_t sent = sendto(socket_fd, data.data(), data.size(), 0, (struct sockaddr *) &client_address,
-                        sizeof(client_address));
+  ssize_t sent = sendto(mSocketFd, data.data(), data.size(), 0, (struct sockaddr *) &mClientAddr,
+                        sizeof(mClientAddr));
 
 }
 
 std::unique_ptr<TFTPPacket> Connection::receivePacket() {
   std::vector<uint8_t> buffer(65535);
 
-  socklen_t from_length = sizeof(client_address);
+  socklen_t from_length = sizeof(mClientAddr);
 
-  ssize_t received = recvfrom(socket_fd, buffer.data(), buffer.size(), 0, (struct sockaddr *) &client_address,
+  ssize_t received = recvfrom(mSocketFd, buffer.data(), buffer.size(), 0, (struct sockaddr *) &mClientAddr,
                               &from_length);
 
   // TODO: Check this outside of the scope
@@ -167,13 +166,13 @@ std::unique_ptr<TFTPPacket> Connection::receivePacket() {
 
   auto packet = TFTPPacket::deserialize(buffer);
 
-  std::cerr << packet->formatPacket(inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port),
-                                    ntohs(connection_port));
+  std::cerr << packet->formatPacket(inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port),
+                                    ntohs(mConnectionPort));
   return packet;
 }
 void Connection::cleanup() {
-  if (state != TFTPState::FINISHED) {
-    std::filesystem::remove(file_path);
+  if (mState != TFTPState::FINISHED) {
+    std::filesystem::remove(mFilePath);
     sendPacket(ErrorPacket{0, "Server shutting down"});
   }
 }

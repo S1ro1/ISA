@@ -22,18 +22,18 @@
 
 
 class Connection {
-  int socket_fd;
-  sockaddr_in connection_address;
-  sockaddr_in client_address;
-  uint16_t connection_port;
+  int mSocketFd;
+  sockaddr_in mConnectionAddr;
+  sockaddr_in mClientAddr;
+  uint16_t mConnectionPort;
 
-  TFTPState state;
-  Mode mode;
-  uint16_t blkNumber = 0;
+  TFTPState mState;
+  Mode mMode;
+  uint16_t mBlockNumber = 0;
 
-  std::string file_path;
+  std::string mFilePath;
 
-  OptionsMap opts;
+  OptionsMap mOptions;
 
   void sendPacket(const TFTPPacket &packet);
 
@@ -52,7 +52,7 @@ public:
 
   ~Connection() {
     LOG("Closing connection...");
-    close(socket_fd);
+    close(mSocketFd);
   }
 };
 
