@@ -12,7 +12,8 @@ enum class TFTPState {
   SENT_WRQ,
   RECEIVED_WRQ,
   FINAL_ACK,
-  ERROR
+  ERROR,
+  FINISHED
 };
 
 enum class Mode {

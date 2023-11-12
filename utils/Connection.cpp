@@ -171,3 +171,9 @@ std::unique_ptr<TFTPPacket> Connection::receivePacket() {
                                     ntohs(connection_port));
   return packet;
 }
+void Connection::cleanup() {
+  if (state != TFTPState::FINISHED) {
+    std::filesystem::remove(file_path);
+    sendPacket(ErrorPacket{0, "Server shutting down"});
+  }
+}

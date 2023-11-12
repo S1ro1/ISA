@@ -1,3 +1,5 @@
 cmake-build-*
 examples
 server_dir
+.DS_Store
+build

@@ -27,15 +27,12 @@ class TFTPServer {
   std::string root_dir;
 
   std::vector<std::jthread> threads;
-
+  std::vector<std::unique_ptr<Connection>> connections;
 
 public:
   explicit TFTPServer(const ServerArgs &args);
 
-  ~TFTPServer() {
-    LOG("Closing server...");
-    close(main_socket_fd);
-  }
+  ~TFTPServer();
 
 
   void listen();

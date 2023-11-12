@@ -48,6 +48,8 @@ public:
 
   void serveUpload();
 
+  void cleanup();
+
   ~Connection() {
     LOG("Closing connection...");
     close(socket_fd);

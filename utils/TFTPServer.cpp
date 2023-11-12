@@ -33,7 +33,6 @@ TFTPServer::TFTPServer(const ServerArgs &args) {
 }
 
 void TFTPServer::listen() {
-  std::vector<std::unique_ptr<Connection>> connections;
   while (running) {
     std::vector<uint8_t> buffer(65535);
 
@@ -71,5 +70,10 @@ void TFTPServer::listen() {
     } else {
       continue;
     }
+  }
+}
+TFTPServer::~TFTPServer() {
+  for (auto &connection : connections) {
+    connection->cleanup();
   }
 }
