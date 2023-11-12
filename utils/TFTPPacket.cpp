@@ -24,49 +24,6 @@ std::unique_ptr<TFTPPacket> TFTPPacket::deserialize(const std::vector<uint8_t> &
   }
 }
 
-OptionsMap TFTPPacket::parseOptions(const std::vector<uint8_t> &data, size_t start) {
-  const std::set<std::string> validOptions = {
-          "blksize",
-          "timeout",
-          "tsize"};
-
-  OptionsMap options;
-  std::string key, value;
-  bool isKey = true;
-
-  for (size_t i = start; i < data.size() && data[i]; ++i) {
-    if (data[i] == 0) {
-      if (isKey) isKey = false;
-      else {
-        if (validOptions.find(key) != validOptions.end()) {
-          options[key] = value;
-        } else {
-          throw PacketOptionError(key);
-        }
-        key.clear();
-        value.clear();
-      }
-    } else {
-      if (isKey) key += static_cast<char>(data[i]);
-      else
-        value += static_cast<char>(data[i]);
-    }
-  }
-
-  return options;
-}
-
-std::string TFTPPacket::formatOptions(const OptionsMap &options) {
-  std::string result;
-
-  for (const auto &pair: options) {
-    if (!result.empty()) result += " ";
-
-    result += pair.first + "=" + pair.second;
-  }
-  return result;
-}
-
 std::vector<uint8_t> RRQPacket::serialize() const {
   std::vector<uint8_t> output;
 
@@ -105,7 +62,7 @@ std::unique_ptr<RRQPacket> RRQPacket::deserializeFromData(const std::vector<uint
 
   idx++;
 
-  OptionsMap opts = TFTPPacket::parseOptions(data, idx);
+  OptionsMap opts = OptionsMap(data, idx);
 
   return std::make_unique<RRQPacket>(fname, mode, opts);
 }
@@ -113,9 +70,7 @@ std::unique_ptr<RRQPacket> RRQPacket::deserializeFromData(const std::vector<uint
 std::string RRQPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const {
   std::string result = "RRQ " + src_ip + ":" + std::to_string(port) + " " + "\"" + filename + "\" " + mode;
 
-  if (!options.empty()) {
-    result += " " + formatOptions(options);
-  }
+  result += " " + options.format();
 
   result += "\n";
 
@@ -161,16 +116,14 @@ std::unique_ptr<WRQPacket> WRQPacket::deserializeFromData(const std::vector<uint
 
   idx++;
 
-  OptionsMap opts = TFTPPacket::parseOptions(data, idx);
+  OptionsMap opts = OptionsMap(data, idx);
   return std::make_unique<WRQPacket>(fname, mode, opts);
 }
 
 std::string WRQPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const {
   std::string result = "WRQ " + src_ip + ":" + std::to_string(port) + " " + "\"" + filename + "\" " + mode;
 
-  if (!options.empty()) {
-    result += " " + formatOptions(options);
-  }
+  result += " " + options.format();
 
   result += "\n";
 
@@ -288,33 +241,100 @@ std::vector<uint8_t> OACKPacket::serialize() const {
   output.push_back(0);
   output.push_back(6);
 
-  for (const auto &pair: options) {
-    for (char c: pair.first) {
+  std::array<std::string, 3> keys {"blksize", "timeout", "tsize" };
+
+  std::string currValue;
+
+  for (auto &key : keys) {
+
+    if (key == "blksize") {
+      if (options.mBlksize.second) {
+        currValue = std::to_string(options.mBlksize.first);
+      } else {
+        continue;
+      }
+    } else if (key == "timeout") {
+      if (options.mTimeout.second) {
+        currValue = std::to_string(options.mTimeout.first);
+      } else {
+        continue;
+      }
+    } else if (key == "tsize") {
+      if (options.mTsize.second) {
+        currValue = std::to_string(options.mTsize.first);
+      } else {
+        continue;
+      }
+    }
+
+    for (auto c: key) {
       output.push_back(static_cast<uint8_t>(c));
     }
 
     output.push_back(0);
 
-    for (char c: pair.second) {
+    for (auto c: currValue) {
       output.push_back(static_cast<uint8_t>(c));
     }
-
-    output.push_back(0);
   }
-
   return output;
 }
 
 std::unique_ptr<OACKPacket> OACKPacket::deserializeFromData(const std::vector<uint8_t> &data) {
   int idx = 2;
 
-  OptionsMap opts = TFTPPacket::parseOptions(data, idx);
+  OptionsMap opts = OptionsMap(data, idx);
 
   return std::make_unique<OACKPacket>(opts);
 }
 
 std::string OACKPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const {
-  std::string result = "OACK " + src_ip + ":" + std::to_string(port) + " " + formatOptions(options) + "\n";
+  std::string result = "OACK " + src_ip + ":" + std::to_string(port) + " " + options.format() + "\n";
 
   return result;
+}
+OptionsMap::OptionsMap(const std::vector<uint8_t> &data, size_t start) {
+  const std::set<std::string> validOptions = {
+          "blksize",
+          "timeout",
+          "tsize"};
+
+  mTimeout = std::pair{5, false};
+  mBlksize = std::pair{512, false};
+  mTsize = std::pair{0, false};
+
+  std::string key, value;
+  bool isKey = true;
+  int intVal;
+
+  for (size_t i = start; i < data.size() && data[i]; ++i) {
+    if (data[i] == 0) {
+      if (isKey) {
+        key = value;
+        value = "";
+        isKey = false;
+      } else {
+        if (validOptions.find(key) == validOptions.end()) {
+          throw PacketOptionError(key);
+        }
+        try {
+          intVal = std::stoi(value);
+        } catch (std::invalid_argument &e) {
+          throw PacketOptionError(key);
+        }
+
+        if (key == "blksize") {
+          mBlksize = std::pair{intVal, true};
+        } else if (key == "timeout") {
+          mTimeout = std::pair{intVal, true};
+        } else if (key == "tsize") {
+          mTsize = std::pair{intVal, true};
+        }
+        value = "";
+        isKey = true;
+      }
+    } else {
+      value += static_cast<char>(data[i]);
+    }
+  }
 }

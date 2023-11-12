@@ -11,8 +11,32 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <array>
 
-using OptionsMap = std::map<std::string, std::string>;
+struct OptionsMap {
+  std::pair<int, bool> mBlksize;
+  std::pair<int, bool> mTimeout;
+  std::pair<int, bool> mTsize;
+
+  OptionsMap(int blksize, int timeout, int tsize) : mBlksize(std::pair{blksize, true}),
+                                                    mTimeout(std::pair{timeout, true}),
+                                                    mTsize(std::pair{tsize, true}) {}
+  OptionsMap(const std::vector<uint8_t> &data, size_t start);
+
+  [[nodiscard]] std::string format() const {
+    std::string result;
+    if (mBlksize.second) {
+      result += "blksize=" + std::to_string(mBlksize.first) + "\0";
+    }
+    if (mTimeout.second) {
+      result += "timeout=" + std::to_string(mTimeout.first) + "\0";
+    }
+    if (mTsize.second) {
+      result += "tsize=" + std::to_string(mTsize.first) + "\0";
+    }
+    return result;
+  }
+};
 
 class PacketOpCodeError : public std::exception {
 private:
@@ -53,10 +77,6 @@ public:
   [[nodiscard]] virtual std::string formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const = 0;
 
   static std::unique_ptr<TFTPPacket> deserialize(const std::vector<uint8_t> &data);
-
-  static OptionsMap parseOptions(const std::vector<uint8_t> &data, size_t start);
-
-  static std::string formatOptions(const OptionsMap &options);
 };
 
 
@@ -76,7 +96,7 @@ public:
 
   [[nodiscard]] std::string getMode() const { return mode; }
 
-  [[nodiscard]] std::string getFormattedOptions() const { return formatOptions(options); }
+  [[nodiscard]] std::string getFormattedOptions() const { return options.format(); }
 
   [[nodiscard]] OptionsMap getOptions() const { return options; }
 
@@ -102,7 +122,7 @@ public:
 
   [[nodiscard]] std::string getMode() const { return mode; }
 
-  [[nodiscard]] std::string getFormattedOptions() const { return formatOptions(options); }
+  [[nodiscard]] std::string getFormattedOptions() const { return options.format(); }
 
   [[nodiscard]] OptionsMap getOptions() const { return options; }
 
@@ -122,7 +142,7 @@ public:
 
   [[nodiscard]] OptionsMap getOptions() const { return options; }
 
-  [[nodiscard]] std::string getFormattedOptions() const { return formatOptions(options); }
+  [[nodiscard]] std::string getFormattedOptions() const { return options.format(); }
 
   [[nodiscard]] std::vector<uint8_t> serialize() const override;
 

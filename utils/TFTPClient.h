@@ -40,7 +40,7 @@ class TFTPClient {
   std::unique_ptr<TFTPPacket> receivePacket();
 
 public:
-  explicit TFTPClient(const ClientArgs &args);
+  explicit TFTPClient(const ClientArgs &args, OptionsMap opts);
 
   ~TFTPClient() {
     close(socket_fd);

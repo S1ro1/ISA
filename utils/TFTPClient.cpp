@@ -16,7 +16,7 @@ void TFTPClient::transmit() {
   }
 }
 
-TFTPClient::TFTPClient(const ClientArgs &args) {
+TFTPClient::TFTPClient(const ClientArgs &args, OptionsMap opts) : opts(std::move(opts)) {
   socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
 
   client_address = {};
@@ -120,7 +120,6 @@ void TFTPClient::requestRead() {
   if (oack_packet) {
     opts = oack_packet->getOptions();
   } else if (data_packet) {
-    opts = OptionsMap{};
     handleDataPacket(outputFile, data_packet);
   } else {
     state = TFTPState::ERROR;

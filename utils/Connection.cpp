@@ -4,26 +4,21 @@
 
 #include "Connection.h"
 
-Connection::Connection(std::string file, OptionsMap options, sockaddr_in client_address) {
-  this->mFilePath = std::move(file);
-  this->mOptions = std::move(options);
+Connection::Connection(std::string file, OptionsMap options, sockaddr_in client_address) : mOptions(std::move(options)) {
+  mFilePath = std::move(file);
 
   mState = TFTPState::INIT;
   mSocketFd = socket(AF_INET, SOCK_DGRAM, 0);
   mClientAddr = client_address;
 
   mConnectionAddr = {};
-
   mConnectionAddr.sin_family = AF_INET;
   mConnectionAddr.sin_port = htons(0);
   mConnectionAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
   bind(mSocketFd, (struct sockaddr *) &mConnectionAddr, sizeof(mConnectionAddr));
-
   socklen_t connection_len = sizeof(mConnectionAddr);
-
   getsockname(mSocketFd, (struct sockaddr *) &mConnectionAddr, &connection_len);
-
   mConnectionPort = mConnectionAddr.sin_port;
 
   errorPacket = std::nullopt;
