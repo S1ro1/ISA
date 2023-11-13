@@ -118,6 +118,17 @@ void TFTPClient::requestRead() {
 
   if (oack_packet) {
     opts = oack_packet->getOptions();
+
+    ACKPacket ack{0};
+    sendPacket(ack);
+
+    packet = receivePacket();
+
+    // TODO: check
+    data_packet = dynamic_cast<DataPacket *>(packet.get());
+
+    handleDataPacket(outputFile, data_packet);
+
   } else if (data_packet) {
     handleDataPacket(outputFile, data_packet);
   } else {
@@ -176,7 +187,7 @@ void TFTPClient::requestWrite() {
   uint16_t blockNumber = 1;
 
   while (state != TFTPState::FINAL_ACK && state != TFTPState::ERROR) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+//    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
     // TODO: check with options
     std::vector<uint8_t> data(opts.mBlksize.first);

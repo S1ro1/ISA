@@ -19,6 +19,8 @@ std::unique_ptr<TFTPPacket> TFTPPacket::deserialize(const std::vector<uint8_t> &
       return ACKPacket::deserializeFromData(data);
     case 5:
       return ErrorPacket::deserializeFromData(data);
+    case 6:
+      return OACKPacket::deserializeFromData(data);
     default:
       throw PacketOpCodeError(opcode);
   }
