@@ -20,14 +20,15 @@ Connection::Connection(std::string file, OptionsMap options, sockaddr_in client_
   read_timeout.tv_sec = mOptions.mTimeout.first;
   read_timeout.tv_usec = 0;
 
-  setsockopt(mSocketFd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
+  int ret = setsockopt(mSocketFd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
 
   bind(mSocketFd, (struct sockaddr *) &mConnectionAddr, sizeof(mConnectionAddr));
   socklen_t connection_len = sizeof(mConnectionAddr);
   getsockname(mSocketFd, (struct sockaddr *) &mConnectionAddr, &connection_len);
   mConnectionPort = mConnectionAddr.sin_port;
 
-  errorPacket = std::nullopt;
+  mErrorPacket = std::nullopt;
+  mLastPacket = nullptr;
 }
 
 void Connection::serveDownload() {
@@ -35,30 +36,34 @@ void Connection::serveDownload() {
   std::ifstream input_file(mFilePath, std::ios::binary);
 
   if (!input_file.is_open()) {
-    errorPacket = std::optional(ErrorPacket{1, "File not found"});
+    mErrorPacket = std::optional(ErrorPacket{1, "File not found"});
     mState = TFTPState::ERROR;
   }
 
   while (mState != TFTPState::FINAL_ACK and mState != TFTPState::ERROR) {
-    std::vector<char> buffer(65500);
 
-    input_file.read(buffer.data(), mOptions.mBlksize.first);
+    if (!mReachedTimeout) {
+      std::vector<char> buffer(65500);
 
-    if (input_file.gcount() < mOptions.mBlksize.first) {
-      buffer.resize(input_file.gcount());
+      input_file.read(buffer.data(), mOptions.mBlksize.first);
+
+      if (input_file.gcount() < mOptions.mBlksize.first) {
+        buffer.resize(input_file.gcount());
+      }
+
+      mLastPacket = std::make_unique<DataPacket>(mBlockNumber, std::vector<uint8_t>(buffer.begin(), buffer.end()));
     }
 
-    DataPacket data_packet{mBlockNumber, std::vector<uint8_t>(buffer.begin(), buffer.end())};
-
-    sendPacket(data_packet);
+    sendPacket(*mLastPacket);
 
     std::unique_ptr<TFTPPacket> packet;
     try {
       packet = receivePacket();
-    } catch (std::runtime_error &e) {
-      mState = TFTPState::ERROR;
-      break;
+    } catch (TFTPConnection::TimeoutException &e) {
+      mReachedTimeout = true;
+      continue;
     }
+    mReachedTimeout = false;
 
     auto ack_packet = dynamic_cast<ACKPacket *>(packet.get());
     auto error_packet = dynamic_cast<ErrorPacket *>(packet.get());
@@ -78,29 +83,35 @@ void Connection::serveDownload() {
 
   input_file.close();
 
-  if (errorPacket.has_value()) {
-    sendPacket(*errorPacket);
+  if (mErrorPacket.has_value()) {
+    sendPacket(*mErrorPacket);
   }
 }
 
 void Connection::serveUpload() {
   mState = TFTPState::RECEIVED_WRQ;
   if (std::filesystem::exists(mFilePath)) {
-    errorPacket = std::optional(ErrorPacket{6, "File already exists"});
+    mErrorPacket = std::optional(ErrorPacket{6, "File already exists"});
     mState = TFTPState::ERROR;
   }
 
   std::ofstream output_file(mFilePath, std::ios::binary);
 
   while (mState != TFTPState::FINAL_ACK and mState != TFTPState::ERROR) {
-    auto ack_packet = ACKPacket{mBlockNumber};
-    sendPacket(ack_packet);
-    mBlockNumber++;
+
+    if (!mReachedTimeout) {
+      mLastPacket = std::make_unique<ACKPacket>(mBlockNumber);
+    }
+
+    sendPacket(*mLastPacket);
 
     std::unique_ptr<TFTPPacket> packet;
     try {
       packet = receivePacket();
-    } catch (std::runtime_error &e) {
+    } catch (TFTPConnection::TimeoutException &e) {
+      mReachedTimeout = true;
+      continue;
+    } catch (TFTPConnection::UndefinedException &e) {
       mState = TFTPState::ERROR;
       break;
     }
@@ -114,6 +125,10 @@ void Connection::serveUpload() {
       mState = TFTPState::ERROR;
     }
 
+    mReachedTimeout = false;
+    // TODO: Check if block number is correct
+    mBlockNumber++;
+
     auto data = data_packet->getData();
 
     if (data_packet->getBlockNumber() == mBlockNumber) {
@@ -126,8 +141,8 @@ void Connection::serveUpload() {
     }
 
   }
-  if (errorPacket.has_value()) {
-    sendPacket(*errorPacket);
+  if (mErrorPacket.has_value()) {
+    sendPacket(*mErrorPacket);
   } else {
     auto ack_packet = ACKPacket{mBlockNumber};
     sendPacket(ack_packet);
@@ -157,9 +172,9 @@ std::unique_ptr<TFTPPacket> Connection::receivePacket() {
   // TODO: Check this outside of the scope
   if (received <= 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK) {
-      // handle timeout
+      throw TFTPConnection::TimeoutException();
     } else {
-      throw std::runtime_error("Error while receiving packet");
+      throw TFTPConnection::UndefinedException();
     }
   }
 

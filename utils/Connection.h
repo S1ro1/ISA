@@ -31,6 +31,10 @@ class Connection {
   Mode mMode;
   uint16_t mBlockNumber = 0;
 
+  std::optional<ErrorPacket> mErrorPacket;
+  std::unique_ptr<TFTPPacket> mLastPacket;
+  bool mReachedTimeout = false;
+
   std::string mFilePath;
 
   OptionsMap mOptions;
@@ -39,7 +43,6 @@ class Connection {
 
   std::unique_ptr<TFTPPacket> receivePacket();
 
-  std::optional<ErrorPacket> errorPacket;
 
 public:
   Connection(std::string file_path, OptionsMap options, sockaddr_in client_address);
@@ -55,6 +58,18 @@ public:
     close(mSocketFd);
   }
 };
+
+namespace TFTPConnection {
+  class TimeoutException : public std::runtime_error {
+  public:
+    TimeoutException() : std::runtime_error("Timeout") {}
+  };
+
+  class UndefinedException : public std::runtime_error {
+  public:
+    UndefinedException() : std::runtime_error("Undefined error") {}
+  };
+}
 
 
 #endif//ISA_PROJECT_CONNECTION_H

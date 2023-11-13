@@ -176,7 +176,7 @@ void TFTPClient::requestWrite() {
   uint16_t blockNumber = 1;
 
   while (state != TFTPState::FINAL_ACK && state != TFTPState::ERROR) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
     // TODO: check with options
     std::vector<uint8_t> data(opts.mBlksize.first);
