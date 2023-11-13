@@ -39,6 +39,7 @@ void Connection::serveDownload() {
     mErrorPacket = std::optional(ErrorPacket{1, "File not found"});
     mState = TFTPState::ERROR;
   }
+  mBlockNumber = 1;
 
   while (mState != TFTPState::FINAL_ACK and mState != TFTPState::ERROR) {
 

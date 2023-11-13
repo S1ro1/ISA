@@ -58,6 +58,8 @@ void TFTPServer::listen() {
 
     // TODO: error handling
     if (rrq_packet) {
+
+      auto size = rrq_packet->serialize().size();
       auto file_path = root_dir + "/" + rrq_packet->getFilename();
       auto connection = std::make_unique<Connection>(file_path, rrq_packet->getOptions(),
                                                      from_address);
@@ -70,6 +72,7 @@ void TFTPServer::listen() {
       connections.push_back(std::move(connection));
       threads.emplace_back(&Connection::serveUpload, connections.back().get());
     } else {
+      LOG("Invalid packet received");
       continue;
     }
   }
