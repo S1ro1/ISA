@@ -4,13 +4,18 @@
 
 #include "Connection.h"
 
-Connection::Connection(std::string file, OptionsMap options, sockaddr_in client_address) : mOptions(std::move(options)) {
+#include <utility>
+
+Connection::Connection(std::string file, Options::map_t options, sockaddr_in client_address) {
   mFilePath = std::move(file);
+  mOptions = std::move(options);
 
   mBlockNumber = 0;
   mState = TFTPState::INIT;
   mSocketFd = socket(AF_INET, SOCK_DGRAM, 0);
   mClientAddr = client_address;
+
+  mErrorPacket = std::nullopt;
 
   mConnectionAddr = {};
   mConnectionAddr.sin_family = AF_INET;
@@ -18,7 +23,7 @@ Connection::Connection(std::string file, OptionsMap options, sockaddr_in client_
   mConnectionAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
   struct timeval read_timeout;
-  read_timeout.tv_sec = mOptions.mTimeout.first;
+  read_timeout.tv_sec = Options::get("timeout", mOptions);
   read_timeout.tv_usec = 0;
 
   setsockopt(mSocketFd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
@@ -28,7 +33,6 @@ Connection::Connection(std::string file, OptionsMap options, sockaddr_in client_
   getsockname(mSocketFd, (struct sockaddr *) &mConnectionAddr, &connection_len);
   mConnectionPort = mConnectionAddr.sin_port;
 
-  mErrorPacket = std::nullopt;
   mLastPacket = nullptr;
 }
 
@@ -46,7 +50,7 @@ void Connection::serveDownload() {
   while (mState != TFTPState::FINAL_ACK and mState != TFTPState::ERROR) {
     std::vector<char> buffer(65536);
 
-    input_file.read(buffer.data(), mOptions.mBlksize.first);
+    input_file.read(buffer.data(), Options::get("blksize", mOptions));
     buffer.resize(input_file.gcount());
     mLastPacket = std::make_unique<DataPacket>(mBlockNumber, std::vector<uint8_t>(buffer.begin(), buffer.end()));
 
@@ -116,7 +120,7 @@ void Connection::serveUpload() {
     auto data = data_packet->getData();
     if (data_packet->getBlockNumber() == mBlockNumber) {
       output_file.write(reinterpret_cast<char *>(data.data()), static_cast<long>(data.size()));
-      if (data_packet->getData().size() < mOptions.mBlksize.first) {
+      if (data_packet->getData().size() < Options::get("blksize", mOptions)) {
         mState = TFTPState::FINAL_ACK;
       }
       // Increment block number only after it is valid packet
@@ -148,12 +152,9 @@ void Connection::serveUpload() {
 
 void Connection::sendPacket(const TFTPPacket &packet) {
   std::vector<uint8_t> data = packet.serialize();
-
-
   // TODO: Error handling
   ssize_t sent = sendto(mSocketFd, data.data(), data.size(), 0, (struct sockaddr *) &mClientAddr,
                         sizeof(mClientAddr));
-
 }
 
 std::unique_ptr<TFTPPacket> Connection::receivePacket() const {
@@ -181,7 +182,13 @@ std::unique_ptr<TFTPPacket> Connection::receivePacket() const {
 
   buffer.resize(received);
 
-  auto packet = TFTPPacket::deserialize(buffer);
+  std::unique_ptr<TFTPPacket> packet;
+
+  try {
+    packet = TFTPPacket::deserialize(buffer);
+  } catch (TFTPFormatError &e) {
+    throw e;
+  }
 
   std::cerr << packet->formatPacket(inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port),
                                     ntohs(mConnectionPort));
@@ -206,9 +213,6 @@ std::unique_ptr<TFTPPacket> Connection::sendAndReceive(const TFTPPacket& packetT
   while (retries < 3) {
     if (send) {
       sendPacket(packetToSend);
-      if (retries > 0){
-        std::cout << ">> Resending packet: " << packetToSend.formatPacket(inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port), ntohs(mConnectionPort));
-      }
     }
     try {
       return receivePacket();
@@ -224,6 +228,9 @@ std::unique_ptr<TFTPPacket> Connection::sendAndReceive(const TFTPPacket& packetT
       break;
     } catch (TFTPConnection::InvalidTIDException &e) {
       mErrorPacket = ErrorPacket(5, "Unknown transfer ID");
+      break;
+    } catch (TFTPFormatError &e) {
+      mErrorPacket = ErrorPacket(4, "Illegal TFTP operation");
       break;
     }
   }

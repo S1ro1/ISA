@@ -47,7 +47,17 @@ void TFTPServer::listen() {
     }
     buffer.resize(received);
 
-    auto packet = TFTPPacket::deserialize(buffer);
+    std::unique_ptr<TFTPPacket> packet;
+    try {
+      packet = TFTPPacket::deserialize(buffer);
+    } catch (TFTPFormatError &e) {
+      auto error_packet = ErrorPacket{4, "Illegal TFTP operation"}.serialize();
+      sendto(main_socket_fd, error_packet.data(), error_packet.size(), 0, (struct sockaddr *) &from_address,
+                            sizeof(from_address));
+
+      std::cout << "Invalid operation\n";
+      continue;
+    }
     const auto rrq_packet = dynamic_cast<RRQPacket *>(packet.get());
     const auto wrq_packet = dynamic_cast<WRQPacket *>(packet.get());
 
@@ -56,24 +66,45 @@ void TFTPServer::listen() {
 
     // TODO: error handling
     std::filesystem::path path {root_dir};
+    Options::map_t validated_options;
     if (rrq_packet) {
-
       path /= rrq_packet->getFilename();
-      auto connection = std::make_unique<Connection>(path, rrq_packet->getOptions(),
+      try {
+        validated_options = Options::validate(rrq_packet->getOptions());
+      } catch (Options::InvalidFormatException &e) {
+        auto error_packet = ErrorPacket{4, "Illegal TFTP operation"}.serialize();
+        sendto(main_socket_fd, error_packet.data(), error_packet.size(), 0, (struct sockaddr *) &from_address,
+                              sizeof(from_address));
+        continue;
+      }
+      auto connection = std::make_unique<Connection>(path, validated_options,
                                                      from_address);
       connections.push_back(std::move(connection));
       threads.emplace_back(&Connection::serveDownload, connections.back().get());
+
     } else if (wrq_packet) {
       path /= wrq_packet->getFilename();
-      auto connection = std::make_unique<Connection>(path, wrq_packet->getOptions(),
+      try {
+        validated_options = Options::validate(wrq_packet->getOptions());
+      } catch (Options::InvalidFormatException &e) {
+        auto error_packet = ErrorPacket{4, "Illegal TFTP operation"}.serialize();
+        sendto(main_socket_fd, error_packet.data(), error_packet.size(), 0, (struct sockaddr *) &from_address,
+               sizeof(from_address));
+        continue;
+      }
+      auto connection = std::make_unique<Connection>(path, validated_options,
                                                      from_address);
       connections.push_back(std::move(connection));
       threads.emplace_back(&Connection::serveUpload, connections.back().get());
+
     } else {
-      LOG("Invalid packet received");
+      auto error_packet = ErrorPacket{4, "Illegal TFTP operation"}.serialize();
+      sendto(main_socket_fd, error_packet.data(), error_packet.size(), 0, (struct sockaddr *) &from_address,
+             sizeof(from_address));
     }
   }
 }
+
 TFTPServer::~TFTPServer() {
   for (auto &connection : connections) {
     connection->cleanup();

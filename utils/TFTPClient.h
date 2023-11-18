@@ -17,6 +17,7 @@
 #include "ArgParser.h"
 #include "TFTPPacket.h"
 #include "utils.h"
+#include "Options.h"
 
 
 class TFTPClient {
@@ -33,14 +34,14 @@ class TFTPClient {
   std::string src_file_path;
   std::string dst_file_path;
 
-  OptionsMap opts;
+  Options::map_t opts;
 
   void sendPacket(const TFTPPacket &packet);
 
   std::unique_ptr<TFTPPacket> receivePacket();
 
 public:
-  explicit TFTPClient(const ClientArgs &args, OptionsMap opts);
+  explicit TFTPClient(const ClientArgs &args, Options::map_t opts);
 
   ~TFTPClient() {
     close(socket_fd);

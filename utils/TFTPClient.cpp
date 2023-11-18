@@ -16,7 +16,7 @@ void TFTPClient::transmit() {
   }
 }
 
-TFTPClient::TFTPClient(const ClientArgs &args, OptionsMap opts) : opts(std::move(opts)) {
+TFTPClient::TFTPClient(const ClientArgs &args, Options::map_t opts) : opts(std::move(opts)) {
   socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
 
   client_address = {};
@@ -94,7 +94,7 @@ void TFTPClient::handleDataPacket(std::ofstream &outputFile, DataPacket *data_pa
 
   std::vector<uint8_t> data = data_packet->getData();
 
-  if (data.size() < opts.mBlksize.first) {
+  if (data.size() < Options::get("blksize", opts)) {
     state = TFTPState::FINAL_ACK;
   }
   outputFile.write(reinterpret_cast<char *>(data.data()), static_cast<long>(data.size()));
@@ -186,12 +186,15 @@ void TFTPClient::requestWrite() {
 
   uint16_t blockNumber = 1;
 
+  long blksize = Options::get("blksize", opts);
+
   while (state != TFTPState::FINAL_ACK && state != TFTPState::ERROR) {
 
     // TODO: check with options
-    std::vector<uint8_t> data(opts.mBlksize.first);
 
-    std::cin.read(reinterpret_cast<char *>(data.data()), static_cast<long>(opts.mBlksize.first));
+    std::vector<uint8_t> data(Options::get("blksize", opts));
+
+    std::cin.read(reinterpret_cast<char *>(data.data()), blksize);
     size_t bytesRead = std::cin.gcount();
 
     if (bytesRead < data.size()) data.resize(bytesRead);
@@ -210,6 +213,6 @@ void TFTPClient::requestWrite() {
     blockNumber++;
 
 
-    if (bytesRead < opts.mBlksize.first) state = TFTPState::FINAL_ACK;
+    if (bytesRead < blksize) state = TFTPState::FINAL_ACK;
   }
 }

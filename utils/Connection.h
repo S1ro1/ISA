@@ -18,6 +18,7 @@
 #include "ArgParser.h"
 #include "TFTPPacket.h"
 #include "utils.h"
+#include "Options.h"
 
 
 namespace TFTPConnection {
@@ -53,8 +54,7 @@ class Connection {
   std::unique_ptr<TFTPPacket> mLastPacket;
 
   std::string mFilePath;
-
-  OptionsMap mOptions;
+  Options::map_t mOptions;
 
   void sendPacket(const TFTPPacket &packet);
 
@@ -81,7 +81,7 @@ class Connection {
   }
 
 public:
-  Connection(std::string file_path, OptionsMap options, sockaddr_in client_address);
+  Connection(std::string file_path, Options::map_t options, sockaddr_in client_address);
 
   void serveDownload();
 

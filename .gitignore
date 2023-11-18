@@ -4,3 +4,4 @@ server_dir
 .DS_Store
 .vscode
 build
+test.sh
