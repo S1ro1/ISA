@@ -32,7 +32,6 @@ public:
 
   ~TFTPServer();
 
-
   void listen();
 };
 

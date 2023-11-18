@@ -137,6 +137,7 @@ void TFTPClient::requestRead() {
   }
 
   while (state != TFTPState::FINAL_ACK) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
     auto packet = receivePacket();
 
     auto data_packet = dynamic_cast<DataPacket *>(packet.get());
@@ -186,7 +187,6 @@ void TFTPClient::requestWrite() {
   uint16_t blockNumber = 1;
 
   while (state != TFTPState::FINAL_ACK && state != TFTPState::ERROR) {
-//    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
     // TODO: check with options
     std::vector<uint8_t> data(opts.mBlksize.first);

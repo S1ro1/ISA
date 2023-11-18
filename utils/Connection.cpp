@@ -21,7 +21,7 @@ Connection::Connection(std::string file, OptionsMap options, sockaddr_in client_
   read_timeout.tv_sec = mOptions.mTimeout.first;
   read_timeout.tv_usec = 0;
 
-  int ret = setsockopt(mSocketFd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
+  setsockopt(mSocketFd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
 
   bind(mSocketFd, (struct sockaddr *) &mConnectionAddr, sizeof(mConnectionAddr));
   socklen_t connection_len = sizeof(mConnectionAddr);
@@ -81,6 +81,8 @@ void Connection::serveDownload() {
   if (mErrorPacket.has_value()) {
     sendPacket(*mErrorPacket);
   }
+
+  mState = TFTPState::FINISHED;
 }
 
 void Connection::serveUpload() {
@@ -94,6 +96,7 @@ void Connection::serveUpload() {
   mBlockNumber = 1;
   mLastPacket = std::make_unique<ACKPacket>(mBlockNumber);
 
+  // TODO: check success
   std::ofstream output_file(mFilePath, std::ios::binary);
 
   while (mState != TFTPState::FINAL_ACK && mState != TFTPState::ERROR) {
@@ -153,12 +156,14 @@ void Connection::sendPacket(const TFTPPacket &packet) {
 
 }
 
-std::unique_ptr<TFTPPacket> Connection::receivePacket() {
+std::unique_ptr<TFTPPacket> Connection::receivePacket() const {
   std::vector<uint8_t> buffer(65535);
 
-  socklen_t from_length = sizeof(mClientAddr);
+  sockaddr_in from_address = {};
 
-  ssize_t received = recvfrom(mSocketFd, buffer.data(), buffer.size(), 0, (struct sockaddr *) &mClientAddr,
+  socklen_t from_length = sizeof(from_address);
+
+  ssize_t received = recvfrom(mSocketFd, buffer.data(), buffer.size(), 0, (struct sockaddr *) &from_address,
                               &from_length);
 
   // TODO: Check this outside of the scope
@@ -167,6 +172,10 @@ std::unique_ptr<TFTPPacket> Connection::receivePacket() {
       throw TFTPConnection::TimeoutException();
     } else {
       throw TFTPConnection::UndefinedException();
+    }
+  } else {
+    if (from_address.sin_port != mClientAddr.sin_port || from_address.sin_addr.s_addr != mClientAddr.sin_addr.s_addr) {
+      throw TFTPConnection::InvalidTIDException();
     }
   }
 
@@ -186,10 +195,21 @@ void Connection::cleanup() {
   }
 }
 
+/**
+ * Sends packet depending on send param, waits for 3 timeouts and returns it, returns nullptr and sets error packet accordingly in case of failure
+ * @param packetToSend packet to be sent
+ * @param send whether to send packet, or just wait
+ * @return received, packet, nullptr in case of failure
+ */
 std::unique_ptr<TFTPPacket> Connection::sendAndReceive(const TFTPPacket& packetToSend, bool send) {
   int retries = 0;
   while (retries < 3) {
-    sendPacket(packetToSend);
+    if (send) {
+      sendPacket(packetToSend);
+      if (retries > 0){
+        std::cout << ">> Resending packet: " << packetToSend.formatPacket(inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port), ntohs(mConnectionPort));
+      }
+    }
     try {
       return receivePacket();
     } catch (TFTPConnection::TimeoutException &e) {
@@ -201,6 +221,9 @@ std::unique_ptr<TFTPPacket> Connection::sendAndReceive(const TFTPPacket& packetT
       continue;
     } catch (TFTPConnection::UndefinedException &e) {
       mErrorPacket = ErrorPacket(0, "Undefined error");
+      break;
+    } catch (TFTPConnection::InvalidTIDException &e) {
+      mErrorPacket = ErrorPacket(5, "Unknown transfer ID");
       break;
     }
   }

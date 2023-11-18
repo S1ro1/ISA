@@ -30,14 +30,20 @@ namespace TFTPConnection {
   public:
     UndefinedException() : std::runtime_error("Undefined error") {}
   };
+
+  class InvalidTIDException final : public std::runtime_error {
+  public:
+    InvalidTIDException() : std::runtime_error("Invalid TID") {}
+  };
 }
 
 
 class Connection {
   int mSocketFd;
-  sockaddr_in mConnectionAddr;
-  sockaddr_in mClientAddr;
   uint16_t mConnectionPort;
+  sockaddr_in mConnectionAddr;
+
+  sockaddr_in mClientAddr;
 
   TFTPState mState;
   Mode mMode;
@@ -45,7 +51,6 @@ class Connection {
 
   std::optional<ErrorPacket> mErrorPacket;
   std::unique_ptr<TFTPPacket> mLastPacket;
-  bool mReachedTimeout = false;
 
   std::string mFilePath;
 
@@ -53,7 +58,7 @@ class Connection {
 
   void sendPacket(const TFTPPacket &packet);
 
-  std::unique_ptr<TFTPPacket> receivePacket();
+  [[nodiscard]] std::unique_ptr<TFTPPacket> receivePacket() const;
 
   std::unique_ptr<TFTPPacket> sendAndReceive(const TFTPPacket& packetToSend, bool send);
 
