@@ -37,52 +37,45 @@ void Connection::serveDownload() {
   std::ifstream input_file(mFilePath, std::ios::binary);
 
   if (!input_file.is_open()) {
-    mErrorPacket = std::optional(ErrorPacket{1, "File not found"});
-    mState = TFTPState::ERROR;
+    sendPacket(ErrorPacket{1, "File not found"});
+    return;
   }
+
   mBlockNumber = 1;
-
+  bool send = true;
   while (mState != TFTPState::FINAL_ACK and mState != TFTPState::ERROR) {
+    std::vector<char> buffer(65536);
 
-    if (!mReachedTimeout) {
-      std::vector<char> buffer(65500);
+    input_file.read(buffer.data(), mOptions.mBlksize.first);
+    buffer.resize(input_file.gcount());
+    mLastPacket = std::make_unique<DataPacket>(mBlockNumber, std::vector<uint8_t>(buffer.begin(), buffer.end()));
 
-      input_file.read(buffer.data(), mOptions.mBlksize.first);
+    auto packet = sendAndReceive(*mLastPacket, send);
 
-      if (input_file.gcount() < mOptions.mBlksize.first) {
-        buffer.resize(input_file.gcount());
-      }
-
-      mLastPacket = std::make_unique<DataPacket>(mBlockNumber, std::vector<uint8_t>(buffer.begin(), buffer.end()));
-    }
-
-    sendPacket(*mLastPacket);
-
-    std::unique_ptr<TFTPPacket> packet;
-    try {
-      packet = receivePacket();
-    } catch (TFTPConnection::TimeoutException &e) {
-      mReachedTimeout = true;
-      continue;
-    }
-    mReachedTimeout = false;
-
-    auto ack_packet = dynamic_cast<ACKPacket *>(packet.get());
     auto error_packet = dynamic_cast<ErrorPacket *>(packet.get());
+    if (error_packet) {
+      break;
+    }
 
-    if (ack_packet) {
-      if (ack_packet->getBlockNumber() == mBlockNumber) {
-        mBlockNumber++;
-      }
+    auto ack_packet = expectPacketType<ACKPacket>(std::move(packet));
 
-      if (input_file.eof()) {
-        mState = TFTPState::FINAL_ACK;
-      }
-    } else if (error_packet) {
+    if (!ack_packet) break;
+
+    auto blockNum = ack_packet->getBlockNumber();
+    if (blockNum == mBlockNumber) {
+      mBlockNumber++;
+      send = true;
+
+      if (input_file.eof()) break;
+
+    } else if (blockNum > mBlockNumber) {
       mState = TFTPState::ERROR;
+      mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
+      break;
+    } else if (blockNum < mBlockNumber) {
+      send = false;
     }
   }
-
   input_file.close();
 
   if (mErrorPacket.has_value()) {
@@ -104,15 +97,18 @@ void Connection::serveUpload() {
   std::ofstream output_file(mFilePath, std::ios::binary);
 
   while (mState != TFTPState::FINAL_ACK && mState != TFTPState::ERROR) {
-    auto packet = sendAndReceive(*mLastPacket);
+    auto packet = sendAndReceive(*mLastPacket, true);
 
     if (!packet) break;
 
+    auto error_packet = dynamic_cast<ErrorPacket *>(packet.get());
+    if (error_packet) {
+      break;
+    }
+
     auto data_packet = expectPacketType<DataPacket>(std::move(packet));
-    auto error_packet = expectPacketType<ErrorPacket>(std::move(packet));
 
     if (!data_packet) break;
-    if (error_packet) break;
 
     auto data = data_packet->getData();
     if (data_packet->getBlockNumber() == mBlockNumber) {
@@ -127,7 +123,7 @@ void Connection::serveUpload() {
       mState = TFTPState::ERROR;
       mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
       break;
-    } else {
+    } else if (data_packet->getBlockNumber() < mBlockNumber) {
       mLastPacket = std::make_unique<ACKPacket>(mBlockNumber);
     }
   }
@@ -190,7 +186,7 @@ void Connection::cleanup() {
   }
 }
 
-std::unique_ptr<TFTPPacket> Connection::sendAndReceive(const TFTPPacket& packetToSend) {
+std::unique_ptr<TFTPPacket> Connection::sendAndReceive(const TFTPPacket& packetToSend, bool send) {
   int retries = 0;
   while (retries < 3) {
     sendPacket(packetToSend);

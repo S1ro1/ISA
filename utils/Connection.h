@@ -55,7 +55,7 @@ class Connection {
 
   std::unique_ptr<TFTPPacket> receivePacket();
 
-  std::unique_ptr<TFTPPacket> sendAndReceive(const TFTPPacket& packetToSend);
+  std::unique_ptr<TFTPPacket> sendAndReceive(const TFTPPacket& packetToSend, bool send);
 
   template <typename T>
   [[nodiscard]] std::unique_ptr<T> expectPacketType(std::unique_ptr<TFTPPacket> packet) {
