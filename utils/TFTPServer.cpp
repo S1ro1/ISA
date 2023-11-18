@@ -6,7 +6,7 @@
 
 volatile sig_atomic_t running = 1;
 
-void siginthandler(int signum) {
+void siginthandler([[maybe_unused]] int signum) {
   running = 0;
   LOG("SIGINT received, shutting down...");
 }
@@ -23,13 +23,13 @@ TFTPServer::TFTPServer(const ServerArgs &args) {
   server_address.sin_family = AF_INET;
   server_address.sin_port = htons(args.port);
 
-  struct timeval read_timeout;
+  timeval read_timeout{};
   read_timeout.tv_sec = 0;
   read_timeout.tv_usec = 100;
   setsockopt(main_socket_fd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
 
   // TODO: error handling
-  bind(main_socket_fd, (struct sockaddr *) &server_address, sizeof(server_address));
+  bind(main_socket_fd, reinterpret_cast<sockaddr *>(&server_address), sizeof(server_address));
 }
 
 void TFTPServer::listen() {
@@ -37,7 +37,6 @@ void TFTPServer::listen() {
     std::vector<uint8_t> buffer(65535);
 
     sockaddr_in from_address = {};
-
     socklen_t from_length = sizeof(from_address);
 
     ssize_t received = recvfrom(main_socket_fd, buffer.data(), buffer.size(), 0, (struct sockaddr *) &from_address,
@@ -48,37 +47,39 @@ void TFTPServer::listen() {
     }
     buffer.resize(received);
 
-
     auto packet = TFTPPacket::deserialize(buffer);
-    auto rrq_packet = dynamic_cast<RRQPacket *>(packet.get());
-    auto wrq_packet = dynamic_cast<WRQPacket *>(packet.get());
+    const auto rrq_packet = dynamic_cast<RRQPacket *>(packet.get());
+    const auto wrq_packet = dynamic_cast<WRQPacket *>(packet.get());
 
     std::cerr << packet->formatPacket(inet_ntoa(from_address.sin_addr), ntohs(from_address.sin_port),
                                       ntohs(server_address.sin_port));
 
     // TODO: error handling
+    std::filesystem::path path {root_dir};
     if (rrq_packet) {
 
-      auto size = rrq_packet->serialize().size();
-      auto file_path = root_dir + "/" + rrq_packet->getFilename();
-      auto connection = std::make_unique<Connection>(file_path, rrq_packet->getOptions(),
+      path /= rrq_packet->getFilename();
+      auto connection = std::make_unique<Connection>(path, rrq_packet->getOptions(),
                                                      from_address);
       connections.push_back(std::move(connection));
       threads.emplace_back(&Connection::serveDownload, connections.back().get());
     } else if (wrq_packet) {
-      auto file_path = root_dir + "/" + wrq_packet->getFilename();
-      auto connection = std::make_unique<Connection>(file_path, wrq_packet->getOptions(),
+      path /= wrq_packet->getFilename();
+      auto connection = std::make_unique<Connection>(path, wrq_packet->getOptions(),
                                                      from_address);
       connections.push_back(std::move(connection));
       threads.emplace_back(&Connection::serveUpload, connections.back().get());
     } else {
       LOG("Invalid packet received");
-      continue;
     }
   }
 }
 TFTPServer::~TFTPServer() {
   for (auto &connection : connections) {
     connection->cleanup();
+  }
+
+  for (auto &thread : threads) {
+    thread.join();
   }
 }

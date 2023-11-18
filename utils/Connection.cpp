@@ -7,6 +7,7 @@
 Connection::Connection(std::string file, OptionsMap options, sockaddr_in client_address) : mOptions(std::move(options)) {
   mFilePath = std::move(file);
 
+  mBlockNumber = 0;
   mState = TFTPState::INIT;
   mSocketFd = socket(AF_INET, SOCK_DGRAM, 0);
   mClientAddr = client_address;
@@ -92,64 +93,58 @@ void Connection::serveDownload() {
 void Connection::serveUpload() {
   mState = TFTPState::RECEIVED_WRQ;
   if (std::filesystem::exists(mFilePath)) {
-    mErrorPacket = std::optional(ErrorPacket{6, "File already exists"});
-    mState = TFTPState::ERROR;
+    sendPacket(ErrorPacket{6, "File already exists"});
+    return;
   }
+
+  // TODO: Change after implementing options
+  mBlockNumber = 1;
+  mLastPacket = std::make_unique<ACKPacket>(mBlockNumber);
 
   std::ofstream output_file(mFilePath, std::ios::binary);
 
-  while (mState != TFTPState::FINAL_ACK and mState != TFTPState::ERROR) {
+  while (mState != TFTPState::FINAL_ACK && mState != TFTPState::ERROR) {
+    auto packet = sendAndReceive(*mLastPacket);
 
-    if (!mReachedTimeout) {
-      mLastPacket = std::make_unique<ACKPacket>(mBlockNumber);
-    }
+    if (!packet) break;
 
-    sendPacket(*mLastPacket);
+    auto data_packet = expectPacketType<DataPacket>(std::move(packet));
+    auto error_packet = expectPacketType<ErrorPacket>(std::move(packet));
 
-    std::unique_ptr<TFTPPacket> packet;
-    try {
-      packet = receivePacket();
-    } catch (TFTPConnection::TimeoutException &e) {
-      mReachedTimeout = true;
-      continue;
-    } catch (TFTPConnection::UndefinedException &e) {
-      mState = TFTPState::ERROR;
-      break;
-    }
-
-    auto data_packet = dynamic_cast<DataPacket *>(packet.get());
-    auto error_packet = dynamic_cast<ErrorPacket *>(packet.get());
-
-    if (error_packet) {
-      mState = TFTPState::ERROR;
-    } else if (!data_packet) {
-      mState = TFTPState::ERROR;
-    }
-
-    mReachedTimeout = false;
-    // TODO: Check if block number is correct
-    mBlockNumber++;
+    if (!data_packet) break;
+    if (error_packet) break;
 
     auto data = data_packet->getData();
-
     if (data_packet->getBlockNumber() == mBlockNumber) {
       output_file.write(reinterpret_cast<char *>(data.data()), static_cast<long>(data.size()));
-
-
       if (data_packet->getData().size() < mOptions.mBlksize.first) {
         mState = TFTPState::FINAL_ACK;
       }
+      // Increment block number only after it is valid packet
+      mBlockNumber++;
+      mLastPacket = std::make_unique<ACKPacket>(mBlockNumber);
+    } else if (data_packet->getBlockNumber() > mBlockNumber) {
+      mState = TFTPState::ERROR;
+      mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
+      break;
+    } else {
+      mLastPacket = std::make_unique<ACKPacket>(mBlockNumber);
     }
-
   }
-  if (mErrorPacket.has_value()) {
-    sendPacket(*mErrorPacket);
-  } else {
+
+  // Success
+  if (mState == TFTPState::FINAL_ACK) {
     auto ack_packet = ACKPacket{mBlockNumber};
     sendPacket(ack_packet);
+    output_file.close();
+    return;
   }
 
-  output_file.close();
+  // mState should only be ERROR here
+  if (mErrorPacket.has_value()) {
+    sendPacket(*mErrorPacket);
+  }
+  std::filesystem::remove(mFilePath);
 }
 
 void Connection::sendPacket(const TFTPPacket &packet) {
@@ -187,9 +182,32 @@ std::unique_ptr<TFTPPacket> Connection::receivePacket() {
                                     ntohs(mConnectionPort));
   return packet;
 }
+
 void Connection::cleanup() {
   if (mState != TFTPState::FINISHED) {
     std::filesystem::remove(mFilePath);
     sendPacket(ErrorPacket{0, "Server shutting down"});
   }
+}
+
+std::unique_ptr<TFTPPacket> Connection::sendAndReceive(const TFTPPacket& packetToSend) {
+  int retries = 0;
+  while (retries < 3) {
+    sendPacket(packetToSend);
+    try {
+      return receivePacket();
+    } catch (TFTPConnection::TimeoutException &e) {
+      retries++;
+      if (retries == 3) {
+        mErrorPacket = ErrorPacket(0, "Timeout");
+        break;
+      }
+      continue;
+    } catch (TFTPConnection::UndefinedException &e) {
+      mErrorPacket = ErrorPacket(0, "Undefined error");
+      break;
+    }
+  }
+  mState = TFTPState::ERROR;
+  return nullptr;
 }

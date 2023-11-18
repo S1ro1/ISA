@@ -5,15 +5,12 @@
 #ifndef ISA_PROJECT_TFTPPACKET_H
 #define ISA_PROJECT_TFTPPACKET_H
 
-#include <map>
 #include <memory>
-#include <set>
 #include <string>
 #include <utility>
 #include <vector>
+#include <set>
 #include <array>
-
-#include "utils.h"
 
 struct OptionsMap {
   std::pair<int, bool> mBlksize;
@@ -43,7 +40,6 @@ struct OptionsMap {
 };
 
 class PacketOpCodeError : public std::exception {
-private:
   std::string errorMessage;
 
 public:
@@ -58,7 +54,6 @@ public:
 
 
 class PacketOptionError : public std::exception {
-private:
   std::string errorMessage;
 
 public:

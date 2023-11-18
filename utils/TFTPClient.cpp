@@ -108,7 +108,6 @@ void TFTPClient::requestRead() {
   RRQPacket rrq(src_file_path, transmissionMode, opts);
   sendPacket(rrq);
 
-
   state = TFTPState::SENT_RRQ;
 
   auto packet = receivePacket();

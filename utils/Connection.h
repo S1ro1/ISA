@@ -11,7 +11,6 @@
 #include <netinet/in.h>
 #include <string>
 #include <sys/socket.h>
-#include <thread>
 #include <unistd.h>
 #include <utility>
 #include <filesystem>
@@ -19,6 +18,19 @@
 #include "ArgParser.h"
 #include "TFTPPacket.h"
 #include "utils.h"
+
+
+namespace TFTPConnection {
+  class TimeoutException final : public std::runtime_error {
+  public:
+    TimeoutException() : std::runtime_error("Timeout") {}
+  };
+
+  class UndefinedException final : public std::runtime_error {
+  public:
+    UndefinedException() : std::runtime_error("Undefined error") {}
+  };
+}
 
 
 class Connection {
@@ -29,7 +41,7 @@ class Connection {
 
   TFTPState mState;
   Mode mMode;
-  uint16_t mBlockNumber = 0;
+  uint16_t mBlockNumber;
 
   std::optional<ErrorPacket> mErrorPacket;
   std::unique_ptr<TFTPPacket> mLastPacket;
@@ -43,6 +55,25 @@ class Connection {
 
   std::unique_ptr<TFTPPacket> receivePacket();
 
+  std::unique_ptr<TFTPPacket> sendAndReceive(const TFTPPacket& packetToSend);
+
+  template <typename T>
+  [[nodiscard]] std::unique_ptr<T> expectPacketType(std::unique_ptr<TFTPPacket> packet) {
+    if (packet == nullptr) {
+      return nullptr;
+    }
+
+    auto castPacket = dynamic_cast<T*>(packet.release());
+
+    if (castPacket == nullptr) {
+      mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
+      mState = TFTPState::ERROR;
+      return nullptr;
+    }
+
+    packet.release();
+    return std::unique_ptr<T>(castPacket);
+  }
 
 public:
   Connection(std::string file_path, OptionsMap options, sockaddr_in client_address);
@@ -59,17 +90,6 @@ public:
   }
 };
 
-namespace TFTPConnection {
-  class TimeoutException : public std::runtime_error {
-  public:
-    TimeoutException() : std::runtime_error("Timeout") {}
-  };
-
-  class UndefinedException : public std::runtime_error {
-  public:
-    UndefinedException() : std::runtime_error("Undefined error") {}
-  };
-}
 
 
 #endif//ISA_PROJECT_CONNECTION_H

@@ -7,26 +7,24 @@
 
 #include <arpa/inet.h>
 #include <fstream>
-#include <iostream>
 #include <netinet/in.h>
 #include <string>
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
 #include <csignal>
+#include <filesystem>
 
 #include "ArgParser.h"
 #include "Connection.h"
 #include "TFTPPacket.h"
-#include "utils.h"
-
 
 class TFTPServer {
   int main_socket_fd;
   sockaddr_in server_address;
   std::string root_dir;
 
-  std::vector<std::jthread> threads;
+  std::vector<std::thread> threads;
   std::vector<std::unique_ptr<Connection>> connections;
 
 public:
