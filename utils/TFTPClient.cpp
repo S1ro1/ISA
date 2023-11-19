@@ -114,8 +114,7 @@ void TFTPClient::requestRead() {
     auto error_packet = dynamic_cast<ErrorPacket *>(packet.get());
     if (error_packet) {
       mState = TFTPState::ERROR;
-      outputFile.close();
-      return;
+      break;
     }
 
     if (!data_packet) {
@@ -147,54 +146,60 @@ void TFTPClient::requestRead() {
   }
 
   outputFile.close();
-  return;
 }
 
 void TFTPClient::requestWrite() {
-  WRQPacket wrq(mDestFilePath, mTransmissionMode, mOptions);
-
-  sendPacket(wrq);
+  std::ifstream inputFile(mSrcFilePath, std::ios::binary);
   mState = TFTPState::SENT_WRQ;
+  Options::map_t opts = {};
+  mLastPacket = std::make_unique<WRQPacket>(mDestFilePath, mTransmissionMode, opts);
+  mBlockNumber = 0;
 
-  auto packet = receivePacket();
+  bool toSend = true;
 
-  auto oack_packet = dynamic_cast<OACKPacket *>(packet.get());
-  auto ack_packet = dynamic_cast<ACKPacket *>(packet.get());
-  auto err_packet = dynamic_cast<ErrorPacket *>(packet.get());
+  while (mState != TFTPState::ERROR && mState != TFTPState::FINAL_ACK) {
+    auto packet = exchangePackets(*mLastPacket, toSend);
 
-  if (oack_packet) {
-    mOptions = oack_packet->getOptions();
-  } else if (ack_packet) {
+    if (!packet) {
+      break;
+    }
 
-  } else if (err_packet) {
-    mState = TFTPState::ERROR;
-    return;
-  } else {
-    mState = TFTPState::ERROR;
-    return;
-  }
-
-  uint16_t blockNumber = 1;
-  long blksize = Options::get("blksize", mOptions);
-
-  while (mState != TFTPState::FINAL_ACK && mState != TFTPState::ERROR) {
-    std::vector<uint8_t> data(Options::get("blksize", mOptions));
-
-    std::cin.read(reinterpret_cast<char *>(data.data()), blksize);
-    size_t bytesRead = std::cin.gcount();
-
-    data.resize(bytesRead);
-    DataPacket dataPacket(blockNumber, data);
-    sendPacket(dataPacket);
-
-    packet = receivePacket();
     auto ack_packet = dynamic_cast<ACKPacket *>(packet.get());
+    auto error_packet = dynamic_cast<ErrorPacket *>(packet.get());
+    if (error_packet) {
+      mState = TFTPState::ERROR;
+      break;
+    }
+
     if (!ack_packet) {
       mState = TFTPState::ERROR;
-      return;
+      mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
+      break;
+    } else if (ack_packet->getBlockNumber() == mBlockNumber) {
+
+      auto sent_packet = dynamic_cast<DataPacket *>(mLastPacket.get());
+      if (sent_packet && sent_packet->getData().size() < Options::get("blksize", mOptions)) {
+        mState = TFTPState::FINAL_ACK;
+        break;
+      }
+
+      mBlockNumber++;
+      toSend = true;
+      std::vector<uint8_t> data(Options::get("blksize", mOptions));
+      std::cin.read(reinterpret_cast<char *>(data.data()), Options::get("blksize", mOptions));
+      data.resize(std::cin.gcount());
+      mLastPacket = std::make_unique<DataPacket>(mBlockNumber, data);
+    } else if (ack_packet->getBlockNumber() > mBlockNumber) {
+      mState = TFTPState::ERROR;
+      mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
+      break;
+    } else if (ack_packet->getBlockNumber() < mBlockNumber) {
+      toSend = false;
     }
-    blockNumber++;
-    if (bytesRead < blksize) mState = TFTPState::FINAL_ACK;
+  }
+
+  if (mErrorPacket.has_value()) {
+    sendPacket(*mErrorPacket);
   }
 }
 
