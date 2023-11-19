@@ -99,7 +99,15 @@ std::unique_ptr<TFTPPacket> TFTPClient::receivePacket() {
 }
 
 void TFTPClient::requestRead() {
-  std::ofstream outputFile(mDestFilePath, std::ios::binary);
+//  std::ofstream outputFile(mDestFilePath, std::ios::binary);
+
+  std::unique_ptr<IOutputWrapper> outputFile;
+  if (mTransmissionMode == "octet") {
+    outputFile = std::make_unique<Octet::OutputFile>(mDestFilePath);
+  } else {
+    outputFile = std::make_unique<NetAscii::OutputFile>(mDestFilePath);
+  }
+
   mState = TFTPState::SENT_RRQ;
   Options::map_t opts = {};
   mLastPacket = std::make_unique<RRQPacket>(mSrcFilePath, mTransmissionMode, opts);
@@ -122,7 +130,7 @@ void TFTPClient::requestRead() {
       mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
       break;
     } else if (data_packet->getBlockNumber() == mBlockNumber) {
-      outputFile.write(reinterpret_cast<const char *>(data_packet->getData().data()), data_packet->getData().size());
+      outputFile->write(data_packet->getData());
       if (data_packet->getData().size() < Options::get("blksize", mOptions)) {
         mState = TFTPState::FINAL_ACK;
       }
@@ -144,12 +152,15 @@ void TFTPClient::requestRead() {
   } else if (mErrorPacket.has_value()) {
     sendPacket(*mErrorPacket);
   }
-
-  outputFile.close();
 }
 
 void TFTPClient::requestWrite() {
-  std::ifstream inputFile(mSrcFilePath, std::ios::binary);
+  std::unique_ptr<IInputWrapper> inputFile;
+  if (mTransmissionMode == "octet") {
+    inputFile = std::make_unique<Octet::InputStdin>();
+  } else {
+    inputFile = std::make_unique<NetAscii::InputStdin>();
+  }
   mState = TFTPState::SENT_WRQ;
   Options::map_t opts = {};
   mLastPacket = std::make_unique<WRQPacket>(mDestFilePath, mTransmissionMode, opts);
@@ -186,7 +197,7 @@ void TFTPClient::requestWrite() {
       mBlockNumber++;
       toSend = true;
       std::vector<uint8_t> data(Options::get("blksize", mOptions));
-      std::cin.read(reinterpret_cast<char *>(data.data()), Options::get("blksize", mOptions));
+      inputFile->read(reinterpret_cast<char *>(data.data()), data.size());
       data.resize(std::cin.gcount());
       mLastPacket = std::make_unique<DataPacket>(mBlockNumber, data);
     } else if (ack_packet->getBlockNumber() > mBlockNumber) {

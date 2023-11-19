@@ -19,6 +19,8 @@
 #include "utils.h"
 #include "Options.h"
 #include "TFTP.h"
+#include "IInputWrapper.h"
+#include "IOutputWrapper.h"
 
 
 class TFTPClient {
@@ -57,8 +59,6 @@ public:
   void requestRead();
 
   void requestWrite();
-
-  void handleDataPacket(std::ofstream &outputFile, DataPacket *data_packet);
 
   std::unique_ptr<TFTPPacket> exchangePackets(const TFTPPacket &packet, bool send);
 };
