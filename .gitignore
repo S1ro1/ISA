@@ -5,3 +5,5 @@ server_dir
 .vscode
 build
 test.sh
+obj
+bin

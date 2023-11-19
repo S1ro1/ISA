@@ -184,6 +184,8 @@ void Connection::serveUpload() {
   if (mState == TFTPState::FINAL_ACK) {
     auto ack_packet = ACKPacket(mBlockNumber - 1);
     sendPacket(ack_packet);
+    mState = TFTPState::FINISHED;
+    return;
   }
 
   // mState should only be ERROR here
