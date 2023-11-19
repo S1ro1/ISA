@@ -77,7 +77,9 @@ std::unique_ptr<RRQPacket> RRQPacket::deserializeFromData(const std::vector<uint
 
 std::string RRQPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const {
   std::string result = "RRQ " + src_ip + ":" + std::to_string(port) + " " + "\"" + filename + "\" " + mode;
-  result += " " + Options::format(options);
+  if (!options.empty()) {
+    result += " " + Options::format(options);
+  }
   result += "\n";
   return result;
 }
@@ -109,7 +111,6 @@ std::unique_ptr<WRQPacket> WRQPacket::deserializeFromData(const std::vector<uint
     fname += static_cast<char>(data[idx++]);
   }
   idx++;
-
   std::string mode;
   while (data[idx] && idx < data.size()) {
     mode += static_cast<char>(data[idx++]);
@@ -127,7 +128,9 @@ std::unique_ptr<WRQPacket> WRQPacket::deserializeFromData(const std::vector<uint
 
 std::string WRQPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const {
   std::string result = "WRQ " + src_ip + ":" + std::to_string(port) + " " + "\"" + filename + "\" " + mode;
-  result += " " + Options::format(options);
+  if (!options.empty()) {
+    result += " " + Options::format(options);
+  }
   result += "\n";
   return result;
 }

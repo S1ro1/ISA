@@ -92,7 +92,7 @@ void Connection::serveDownload() {
 void Connection::serveUpload() {
   mState = TFTPState::RECEIVED_WRQ;
   if (std::filesystem::exists(mFilePath)) {
-    sendPacket(ErrorPacket{6, "File already exists"});
+    mState = TFTPState::FINISHED;
     return;
   }
 
@@ -102,6 +102,11 @@ void Connection::serveUpload() {
 
   // TODO: check success
   std::ofstream output_file(mFilePath, std::ios::binary);
+
+  if (!output_file.is_open() or !output_file.good()) {
+    sendPacket(ErrorPacket{2, "Access violation"});
+    return;
+  }
 
   while (mState != TFTPState::FINAL_ACK && mState != TFTPState::ERROR) {
     auto packet = sendAndReceive(*mLastPacket, true);
@@ -197,7 +202,6 @@ std::unique_ptr<TFTPPacket> Connection::receivePacket() const {
 
 void Connection::cleanup() {
   if (mState != TFTPState::FINISHED) {
-    std::filesystem::remove(mFilePath);
     sendPacket(ErrorPacket{0, "Server shutting down"});
   }
 }

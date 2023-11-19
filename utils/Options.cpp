@@ -6,7 +6,7 @@
 
 namespace Options {
   map_t parse(std::vector<uint8_t> data, int start) {
-    map_t options;
+    map_t options = {};
 
     bool inKey = true;
     std::string key;
