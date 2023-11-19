@@ -31,7 +31,7 @@ class TFTPClient {
   uint16_t mClientPort;
 
   TFTPState mState;
-  std::string mTransmissionMode = "octet";
+  std::string mTransmissionMode;
 
   int mBlockNumber;
   Mode mMode;

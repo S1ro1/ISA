@@ -33,6 +33,7 @@ TFTPClient::TFTPClient(const ClientArgs &args, Options::map_t opts) : mOptions(s
   getsockname(mSocketFd, (struct sockaddr *) &mClientAddress, &client_len);
 
   mClientPort = mClientAddress.sin_port;
+  mTransmissionMode = "octet";
 
   mBlockNumber = 1;
   mDestFilePath = args.dst_file_path;
@@ -99,8 +100,6 @@ std::unique_ptr<TFTPPacket> TFTPClient::receivePacket() {
 }
 
 void TFTPClient::requestRead() {
-//  std::ofstream outputFile(mDestFilePath, std::ios::binary);
-
   std::unique_ptr<IOutputWrapper> outputFile;
   if (mTransmissionMode == "octet") {
     outputFile = std::make_unique<Octet::OutputFile>(mDestFilePath);
