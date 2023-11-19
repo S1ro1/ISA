@@ -60,13 +60,18 @@ std::unique_ptr<RRQPacket> RRQPacket::deserializeFromData(const std::vector<uint
     fname += static_cast<char>(data[idx++]);
   }
 
+  if (idx == data.size()) throw TFTP::PacketFormatException();
+  if (data[idx] != 0) throw TFTP::PacketFormatException();
+
   idx++;
   std::string mode;
   while (data[idx] && idx < data.size()) {
     mode += static_cast<char>(data[idx++]);
   }
-  idx++;
+  if (idx == data.size()) throw TFTP::PacketFormatException();
+  if (data[idx] != 0) throw TFTP::PacketFormatException();
 
+  idx++;
   Options::map_t opts;
   try {
     opts = Options::parse(data, idx);
@@ -111,11 +116,17 @@ std::unique_ptr<WRQPacket> WRQPacket::deserializeFromData(const std::vector<uint
   while (data[idx] && idx < data.size()) {
     fname += static_cast<char>(data[idx++]);
   }
+
+  if (idx == data.size()) throw TFTP::PacketFormatException();
+  if (data[idx] != 0) throw TFTP::PacketFormatException();
+
   idx++;
   std::string mode;
   while (data[idx] && idx < data.size()) {
     mode += static_cast<char>(data[idx++]);
   }
+  if (idx == data.size()) throw TFTP::PacketFormatException();
+  if (data[idx] != 0) throw TFTP::PacketFormatException();
   idx++;
 
   Options::map_t opts;

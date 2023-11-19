@@ -15,8 +15,6 @@ namespace NetAscii {
 
   void OutputFile::write(const std::vector<uint8_t>& buffer) {
 
-    std::cout << "Writing " << buffer.size() << " bytes" << std::endl;
-
     for (auto c : buffer) {
       if (c == '\r') {
         if (mWasCr) mFile << '\r';

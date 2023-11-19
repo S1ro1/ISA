@@ -48,11 +48,13 @@ void Connection::serveDownload() {
     input_file = std::make_unique<NetAscii::InputFile>(mFilePath);
   } else {
     sendPacket(ErrorPacket{4, "Illegal TFTP operation"});
+    mState = TFTPState::FINISHED;
     return;
   }
 
   if (!input_file->is_open()) {
     sendPacket(ErrorPacket{1, "File not found"});
+    mState = TFTPState::FINISHED;
     return;
   }
 
@@ -119,6 +121,7 @@ void Connection::serveUpload() {
   mState = TFTPState::RECEIVED_WRQ;
   if (std::filesystem::exists(mFilePath)) {
     sendPacket(ErrorPacket{6, "File already exists"});
+    mState = TFTPState::FINISHED;
     return;
   }
 
@@ -140,11 +143,13 @@ void Connection::serveUpload() {
     output_file = std::make_unique<NetAscii::OutputFile>(mFilePath);
   } else {
     sendPacket(ErrorPacket{4, "Illegal TFTP operation"});
+    mState = TFTPState::FINISHED;
     return;
   }
 
   if (!output_file->is_open() or !output_file->good()) {
     sendPacket(ErrorPacket{2, "Access violation"});
+    mState = TFTPState::FINISHED;
     return;
   }
 
@@ -191,15 +196,12 @@ void Connection::serveUpload() {
   // mState should only be ERROR here
   if (mErrorPacket.has_value()) {
     sendPacket(*mErrorPacket);
+    mState = TFTPState::FINISHED;
   }
   std::filesystem::remove(mFilePath);
 }
 
 void Connection::sendPacket(const TFTPPacket &packet) {
-  std::cout << "Sending packet: " << packet.formatPacket(inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port),
-                                    ntohs(mConnectionPort)) << "with size: " << packet.serialize().size() << std::endl;
-
-
   std::vector<uint8_t> data = packet.serialize();
   sendto(mSocketFd, data.data(), data.size(), 0, (struct sockaddr *) &mClientAddr,
                         sizeof(mClientAddr));
