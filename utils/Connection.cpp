@@ -193,7 +193,6 @@ std::unique_ptr<TFTPPacket> Connection::receivePacket() const {
   ssize_t received = recvfrom(mSocketFd, buffer.data(), buffer.size(), 0, (struct sockaddr *) &from_address,
                               &from_length);
 
-  // TODO: Check this outside of the scope
   if (received <= 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK) {
       throw TFTPConnection::TimeoutException();

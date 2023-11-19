@@ -42,8 +42,6 @@ TFTPClient::TFTPClient(const ClientArgs &args, Options::map_t opts) : opts(std::
   } else
     mode = Mode::UPLOAD;
 
-  // TODO: error handling
-
   memset(&server_address, 0, sizeof(server_address));
 
   server_address.sin_family = AF_INET;
@@ -57,10 +55,9 @@ TFTPClient::TFTPClient(const ClientArgs &args, Options::map_t opts) : opts(std::
 void TFTPClient::sendPacket(const TFTPPacket &packet) {
   std::vector<uint8_t> data = packet.serialize();
 
-  ssize_t sent = sendto(socket_fd, data.data(), data.size(), 0, (struct sockaddr *) &server_address,
+  sendto(socket_fd, data.data(), data.size(), 0, (struct sockaddr *) &server_address,
                         sizeof(server_address));
 
-  // TODO: error handling
 }
 
 std::unique_ptr<TFTPPacket> TFTPClient::receivePacket() {
@@ -73,10 +70,7 @@ std::unique_ptr<TFTPPacket> TFTPClient::receivePacket() {
   ssize_t received = recvfrom(socket_fd, buffer.data(), buffer.size(), 0, (struct sockaddr *) &from_address,
                               &from_length);
 
-  //TODO: error handling
-
   if (state == TFTPState::SENT_RRQ || state == TFTPState::SENT_WRQ) server_address.sin_port = from_address.sin_port;
-
   buffer.resize(received);
 
   auto packet = TFTPPacket::deserialize(buffer);
@@ -102,9 +96,6 @@ void TFTPClient::handleDataPacket(std::ofstream &outputFile, DataPacket *data_pa
 
 void TFTPClient::requestRead() {
   std::ofstream outputFile(dst_file_path, std::ios::binary);
-
-  // TODO: error handling
-
   RRQPacket rrq(src_file_path, transmissionMode, opts);
   sendPacket(rrq);
 
@@ -123,7 +114,6 @@ void TFTPClient::requestRead() {
 
     packet = receivePacket();
 
-    // TODO: check
     data_packet = dynamic_cast<DataPacket *>(packet.get());
 
     handleDataPacket(outputFile, data_packet);
@@ -185,34 +175,25 @@ void TFTPClient::requestWrite() {
   }
 
   uint16_t blockNumber = 1;
-
   long blksize = Options::get("blksize", opts);
 
   while (state != TFTPState::FINAL_ACK && state != TFTPState::ERROR) {
-
-    // TODO: check with options
-
     std::vector<uint8_t> data(Options::get("blksize", opts));
 
     std::cin.read(reinterpret_cast<char *>(data.data()), blksize);
     size_t bytesRead = std::cin.gcount();
 
-    if (bytesRead < data.size()) data.resize(bytesRead);
-
+    data.resize(bytesRead);
     DataPacket dataPacket(blockNumber, data);
     sendPacket(dataPacket);
 
     packet = receivePacket();
-
     auto ack_packet = dynamic_cast<ACKPacket *>(packet.get());
-
     if (!ack_packet) {
       state = TFTPState::ERROR;
       return;
     }
     blockNumber++;
-
-
     if (bytesRead < blksize) state = TFTPState::FINAL_ACK;
   }
 }
