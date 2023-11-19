@@ -137,7 +137,7 @@ void TFTPClient::requestRead() {
   }
 
   while (state != TFTPState::FINAL_ACK) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+//    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
     auto packet = receivePacket();
 
     auto data_packet = dynamic_cast<DataPacket *>(packet.get());

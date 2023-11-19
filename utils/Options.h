@@ -15,7 +15,7 @@
 
 namespace Options {
   using value_t = std::variant<std::string, long>;
-  using map_t = std::map<int, std::pair<std::string, value_t>>;
+  using map_t = std::map<int, std::tuple<std::string, value_t, bool>>;
 
   class InvalidFormatException final : public std::runtime_error {
   public:
@@ -40,6 +40,8 @@ namespace Options {
   [[nodiscard]] long get(const std::string& key, const map_t& options);
 
   long validateInRange(const std::string& value, long min, long max);
+
+  bool isSet(const map_t& options);
 }
 
 #endif//ISA_PROJECT_OPTIONS_H

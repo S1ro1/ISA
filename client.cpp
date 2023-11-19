@@ -4,7 +4,7 @@
 
 int main(int argc, char *argv[]) {
   ClientArgs args = ArgParser::parseClientArgs(argv, argc);
-  Options::map_t opts = Options::create(1024, 10, 0);
+  Options::map_t opts = Options::create(512, 10, 0);
 
 
   std::vector<uint8_t> options = {
@@ -20,9 +20,9 @@ int main(int argc, char *argv[]) {
     // 100, 117, 109, 109, 121, 118, 97, 108, 117, 101, 0 // "dummyvalue"
   };
 
-  Options::map_t opts2 = Options::parse(options, 0);
+//  Options::map_t opts2 = Options::parse(options, 0);
 
-  TFTPClient client{args, opts2};
+  TFTPClient client{args, opts};
 
   client.transmit();
 

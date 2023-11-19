@@ -45,14 +45,27 @@ void Connection::serveDownload() {
     return;
   }
 
-  mBlockNumber = 1;
+  mBlockNumber = 0;
   bool send = true;
   while (mState != TFTPState::FINAL_ACK and mState != TFTPState::ERROR) {
     std::vector<char> buffer(65536);
 
-    input_file.read(buffer.data(), Options::get("blksize", mOptions));
-    buffer.resize(input_file.gcount());
-    mLastPacket = std::make_unique<DataPacket>(mBlockNumber, std::vector<uint8_t>(buffer.begin(), buffer.end()));
+
+    if (mBlockNumber == 0) {
+      if (Options::isSet(mOptions)) {
+        mBlockNumber = 0;
+        mLastPacket = std::make_unique<OACKPacket>(mOptions);
+      } else {
+        mBlockNumber = 1;
+        input_file.read(buffer.data(), Options::get("blksize", mOptions));
+        buffer.resize(input_file.gcount());
+        mLastPacket = std::make_unique<DataPacket>(mBlockNumber, std::vector<uint8_t>(buffer.begin(), buffer.end()));
+      }
+    } else {
+      input_file.read(buffer.data(), Options::get("blksize", mOptions));
+      buffer.resize(input_file.gcount());
+      mLastPacket = std::make_unique<DataPacket>(mBlockNumber, std::vector<uint8_t>(buffer.begin(), buffer.end()));
+    }
 
     auto packet = sendAndReceive(*mLastPacket, send);
 
@@ -69,7 +82,6 @@ void Connection::serveDownload() {
     if (blockNum == mBlockNumber) {
       mBlockNumber++;
       send = true;
-
       if (input_file.eof()) break;
 
     } else if (blockNum > mBlockNumber) {
@@ -92,17 +104,21 @@ void Connection::serveDownload() {
 void Connection::serveUpload() {
   mState = TFTPState::RECEIVED_WRQ;
   if (std::filesystem::exists(mFilePath)) {
-    mState = TFTPState::FINISHED;
+    sendPacket(ErrorPacket{6, "File already exists"});
     return;
   }
 
-  // TODO: Change after implementing options
   mBlockNumber = 1;
-  mLastPacket = std::make_unique<ACKPacket>(mBlockNumber);
+  mLastPacket = std::make_unique<ACKPacket>(mBlockNumber - 1);
 
-  // TODO: check success
+  Options::map_t oack_options;
+  for (auto &[order, item] : mOptions) {
+    auto &[key, value, set] = item;
+    if (set) oack_options[order] = item;
+  }
+  if (!oack_options.empty()) mLastPacket = std::make_unique<OACKPacket>(oack_options);
+
   std::ofstream output_file(mFilePath, std::ios::binary);
-
   if (!output_file.is_open() or !output_file.good()) {
     sendPacket(ErrorPacket{2, "Access violation"});
     return;
@@ -130,7 +146,7 @@ void Connection::serveUpload() {
       }
       // Increment block number only after it is valid packet
       mBlockNumber++;
-      mLastPacket = std::make_unique<ACKPacket>(mBlockNumber);
+      mLastPacket = std::make_unique<ACKPacket>(mBlockNumber - 1);
     } else if (data_packet->getBlockNumber() > mBlockNumber) {
       mState = TFTPState::ERROR;
       mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
@@ -142,7 +158,7 @@ void Connection::serveUpload() {
 
   // Success
   if (mState == TFTPState::FINAL_ACK) {
-    auto ack_packet = ACKPacket{mBlockNumber};
+    auto ack_packet = ACKPacket(mBlockNumber - 1);
     sendPacket(ack_packet);
     output_file.close();
     return;
@@ -156,6 +172,11 @@ void Connection::serveUpload() {
 }
 
 void Connection::sendPacket(const TFTPPacket &packet) {
+
+  std::cout << "Sending packet: " << packet.formatPacket(inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port),
+                                    ntohs(mConnectionPort)) << "with size: " << packet.serialize().size() << std::endl;
+
+
   std::vector<uint8_t> data = packet.serialize();
   // TODO: Error handling
   ssize_t sent = sendto(mSocketFd, data.data(), data.size(), 0, (struct sockaddr *) &mClientAddr,

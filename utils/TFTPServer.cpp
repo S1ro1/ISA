@@ -55,7 +55,6 @@ void TFTPServer::listen() {
       sendto(main_socket_fd, error_packet.data(), error_packet.size(), 0, (struct sockaddr *) &from_address,
                             sizeof(from_address));
 
-      std::cout << "Invalid operation\n";
       continue;
     }
     const auto rrq_packet = dynamic_cast<RRQPacket *>(packet.get());
