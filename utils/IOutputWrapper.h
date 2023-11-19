@@ -13,6 +13,8 @@ class IOutputWrapper {
 public:
   virtual ~IOutputWrapper() = default;
   virtual void write(const std::vector<uint8_t>& buffer) = 0;
+  virtual bool is_open() const = 0;
+  virtual bool good() const = 0;
 };
 
 namespace NetAscii {
@@ -20,8 +22,8 @@ namespace NetAscii {
     char mWasCr = false;
     std::ofstream mFile;
   public:
-    bool isOpen() const { return mFile.is_open(); }
-    bool good() const { return mFile.good(); }
+    bool is_open() const override { return mFile.is_open(); }
+    bool good() const override { return mFile.good(); }
     explicit OutputFile(const std::string& filename);
     ~OutputFile() override;
     void write(const std::vector<uint8_t>& buffer) override;
@@ -32,8 +34,8 @@ namespace Octet {
   class OutputFile : public IOutputWrapper {
     std::ofstream mFile;
   public:
-    bool isOpen() const { return mFile.is_open(); }
-    bool good() const { return mFile.good(); }
+    bool is_open() const override { return mFile.is_open(); }
+    bool good() const override { return mFile.good(); }
     explicit OutputFile(const std::string& filename);
     ~OutputFile() override;
     void write(const std::vector<uint8_t>& buffer) override;

@@ -19,6 +19,8 @@
 #include "TFTPPacket.h"
 #include "utils.h"
 #include "Options.h"
+#include "IInputWrapper.h"
+#include "IOutputWrapper.h"
 
 
 class Connection {
@@ -29,7 +31,7 @@ class Connection {
   sockaddr_in mClientAddr;
 
   TFTPState mState;
-  Mode mMode;
+  std::string mTransmissionMode;
   uint16_t mBlockNumber;
 
   std::optional<ErrorPacket> mErrorPacket;
@@ -63,7 +65,7 @@ class Connection {
   }
 
 public:
-  Connection(std::string file_path, Options::map_t options, sockaddr_in client_address);
+  Connection(std::string file_path, Options::map_t options, sockaddr_in client_address, std::string transmission_mode);
 
   void serveDownload();
 

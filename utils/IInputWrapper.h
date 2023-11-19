@@ -32,6 +32,9 @@ public:
      * @param n number of characters to read
      */
     virtual void read(char *os, std::streamsize n) = 0;
+
+    [[nodiscard]] virtual bool is_open() const { return true; }
+    [[nodiscard]] virtual bool eof() const = 0;
 };
 
 
@@ -55,6 +58,8 @@ namespace NetAscii {
     explicit InputFile(const std::string& filename);
     ~InputFile() override;
     void read(char *os, std::streamsize n) override;
+    bool is_open() const override { return file.is_open(); }
+    bool eof() const override { return file.eof(); }
   };
 
   /**
@@ -64,6 +69,7 @@ namespace NetAscii {
   public:
     ~InputStdin() override = default;
     void read(char *os, std::streamsize n) override;
+    bool eof() const override { return std::cin.eof(); }
   };
 }
 
@@ -83,6 +89,8 @@ namespace Octet {
     explicit InputFile(const std::string& filename);
     ~InputFile() override;
     void read(char *os, std::streamsize n) override;
+    bool is_open() const override { return file.is_open(); }
+    bool eof() const override { return file.eof(); }
   };
 
   /**
@@ -92,6 +100,7 @@ namespace Octet {
   public:
     ~InputStdin() override = default;
     void read(char *os, std::streamsize n) override;
+    bool eof() const override { return std::cin.eof(); }
   };
 }
 

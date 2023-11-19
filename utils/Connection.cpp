@@ -7,9 +7,10 @@
 
 #include <utility>
 
-Connection::Connection(std::string file, Options::map_t options, sockaddr_in client_address) {
+Connection::Connection(std::string file, Options::map_t options, sockaddr_in client_address, std::string transmission_mode) {
   mFilePath = std::move(file);
   mOptions = std::move(options);
+  mTransmissionMode = std::move(transmission_mode);
 
   mBlockNumber = 0;
   mState = TFTPState::INIT;
@@ -39,9 +40,18 @@ Connection::Connection(std::string file, Options::map_t options, sockaddr_in cli
 
 void Connection::serveDownload() {
   mState = TFTPState::RECEIVED_RRQ;
-  std::ifstream input_file(mFilePath, std::ios::binary);
 
-  if (!input_file.is_open()) {
+  std::unique_ptr<IInputWrapper> input_file;
+  if (mTransmissionMode == "octet") {
+    input_file = std::make_unique<Octet::InputFile>(mFilePath);
+  } else if (mTransmissionMode == "netascii") {
+    input_file = std::make_unique<NetAscii::InputFile>(mFilePath);
+  } else {
+    sendPacket(ErrorPacket{4, "Illegal TFTP operation"});
+    return;
+  }
+
+  if (!input_file->is_open()) {
     sendPacket(ErrorPacket{1, "File not found"});
     return;
   }
@@ -57,13 +67,13 @@ void Connection::serveDownload() {
         mLastPacket = std::make_unique<OACKPacket>(mOptions);
       } else {
         mBlockNumber = 1;
-        input_file.read(buffer.data(), Options::get("blksize", mOptions));
-        buffer.resize(input_file.gcount());
+        input_file->read(buffer.data(), Options::get("blksize", mOptions));
+        buffer.resize(input_file->gcount());
         mLastPacket = std::make_unique<DataPacket>(mBlockNumber, std::vector<uint8_t>(buffer.begin(), buffer.end()));
       }
     } else {
-      input_file.read(buffer.data(), Options::get("blksize", mOptions));
-      buffer.resize(input_file.gcount());
+      input_file->read(buffer.data(), Options::get("blksize", mOptions));
+      buffer.resize(input_file->gcount());
       mLastPacket = std::make_unique<DataPacket>(mBlockNumber, std::vector<uint8_t>(buffer.begin(), buffer.end()));
     }
 
@@ -79,7 +89,7 @@ void Connection::serveDownload() {
     if (blockNum == mBlockNumber) {
       mBlockNumber++;
       send = true;
-      if (input_file.eof()) break;
+      if (input_file->eof()) break;
 
     } else if (blockNum > mBlockNumber) {
       mState = TFTPState::ERROR;
@@ -89,7 +99,6 @@ void Connection::serveDownload() {
       send = false;
     }
   }
-  input_file.close();
 
   if (mErrorPacket.has_value()) {
     sendPacket(*mErrorPacket);
@@ -115,8 +124,18 @@ void Connection::serveUpload() {
   }
   if (!oack_options.empty()) mLastPacket = std::make_unique<OACKPacket>(oack_options);
 
-  std::ofstream output_file(mFilePath, std::ios::binary);
-  if (!output_file.is_open() or !output_file.good()) {
+  std::unique_ptr<IOutputWrapper> output_file;
+
+  if (mTransmissionMode == "octet") {
+    output_file = std::make_unique<Octet::OutputFile>(mFilePath);
+  } else if (mTransmissionMode == "netascii") {
+    output_file = std::make_unique<NetAscii::OutputFile>(mFilePath);
+  } else {
+    sendPacket(ErrorPacket{4, "Illegal TFTP operation"});
+    return;
+  }
+
+  if (!output_file->is_open() or !output_file->good()) {
     sendPacket(ErrorPacket{2, "Access violation"});
     return;
   }
@@ -137,7 +156,7 @@ void Connection::serveUpload() {
 
     auto data = data_packet->getData();
     if (data_packet->getBlockNumber() == mBlockNumber) {
-      output_file.write(reinterpret_cast<char *>(data.data()), static_cast<long>(data.size()));
+      output_file->write(data_packet->getData());
       if (data_packet->getData().size() < Options::get("blksize", mOptions)) {
         mState = TFTPState::FINAL_ACK;
       }
@@ -157,7 +176,6 @@ void Connection::serveUpload() {
   if (mState == TFTPState::FINAL_ACK) {
     auto ack_packet = ACKPacket(mBlockNumber - 1);
     sendPacket(ack_packet);
-    output_file.close();
     return;
   }
 

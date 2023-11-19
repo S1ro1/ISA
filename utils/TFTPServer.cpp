@@ -78,7 +78,7 @@ void TFTPServer::listen() {
         continue;
       }
       auto connection = std::make_unique<Connection>(path, validated_options,
-                                                     from_address);
+                                                     from_address, rrq_packet->getMode());
       connections.push_back(std::move(connection));
       threads.emplace_back(&Connection::serveDownload, connections.back().get());
 
@@ -93,7 +93,7 @@ void TFTPServer::listen() {
         continue;
       }
       auto connection = std::make_unique<Connection>(path, validated_options,
-                                                     from_address);
+                                                     from_address, wrq_packet->getMode());
       connections.push_back(std::move(connection));
       threads.emplace_back(&Connection::serveUpload, connections.back().get());
 
