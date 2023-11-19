@@ -41,7 +41,9 @@ namespace Options {
 
   long validateInRange(const std::string& value, long min, long max);
 
-  bool isSet(const map_t& options);
+  bool isAny(const map_t& options);
+
+  bool isSet(const std::string& key, const map_t& options);
 }
 
 #endif//ISA_PROJECT_OPTIONS_H

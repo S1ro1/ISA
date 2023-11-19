@@ -62,9 +62,17 @@ void Connection::serveDownload() {
     std::vector<char> buffer(65536);
 
     if (mBlockNumber == 0) {
-      if (Options::isSet(mOptions)) {
+      if (Options::isAny(mOptions)) {
         mBlockNumber = 0;
-        mLastPacket = std::make_unique<OACKPacket>(mOptions);
+        Options::map_t oack_options;
+        for (auto &[order, item] : mOptions) {
+          auto &[key, value, set] = item;
+          if (set) oack_options[order] = item;
+        }
+        long fs = std::filesystem::file_size(mFilePath);
+        if (Options::isSet("tsize", mOptions)) oack_options[2] = std::tuple("tsize", fs, true);
+
+        mLastPacket = std::make_unique<OACKPacket>(oack_options);
       } else {
         mBlockNumber = 1;
         input_file->read(buffer.data(), Options::get("blksize", mOptions));
@@ -191,7 +199,6 @@ void Connection::sendPacket(const TFTPPacket &packet) {
 
 
   std::vector<uint8_t> data = packet.serialize();
-  // TODO: Error handling
   sendto(mSocketFd, data.data(), data.size(), 0, (struct sockaddr *) &mClientAddr,
                         sizeof(mClientAddr));
 }

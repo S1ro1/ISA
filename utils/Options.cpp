@@ -160,10 +160,18 @@ namespace Options {
     return result;
   }
 
-  bool isSet(const map_t& options) {
+  bool isAny(const map_t& options) {
     for (auto &[order, item]: options) {
       auto &[key, value, set] = item;
       if (set) return true;
+    }
+    return false;
+  }
+
+  bool isSet(const std::string& key, const map_t& options) {
+    for (auto &[order, item]: options) {
+      auto &[key_, value, set] = item;
+      if (key == key_ && set) return true;
     }
     return false;
   }
