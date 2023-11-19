@@ -15,11 +15,6 @@
 #include <array>
 #include "Options.h"
 
-class TFTPFormatError : public std::runtime_error {
-public:
-  TFTPFormatError() : std::runtime_error("Invalid packet format") {}
-};
-
 
 class TFTPPacket {
 public:

@@ -3,158 +3,158 @@
 //
 
 #include "TFTPClient.h"
+#include "TFTP.h"
 #include <iomanip>
 
 #include <chrono>
 #include <thread>
 
 void TFTPClient::transmit() {
-  if (mode == Mode::DOWNLOAD) {
+  if (mMode == Mode::DOWNLOAD) {
     requestRead();
   } else {
     requestWrite();
   }
 }
 
-TFTPClient::TFTPClient(const ClientArgs &args, Options::map_t opts) : opts(std::move(opts)) {
-  socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+TFTPClient::TFTPClient(const ClientArgs &args, Options::map_t opts) : mOptions(std::move(opts)) {
+  mSocketFd = socket(AF_INET, SOCK_DGRAM, 0);
 
-  client_address = {};
+  mClientAddress = {};
 
-  client_address.sin_family = AF_INET;
-  client_address.sin_port = htons(0);
-  client_address.sin_addr.s_addr = htonl(INADDR_ANY);
+  mClientAddress.sin_family = AF_INET;
+  mClientAddress.sin_port = htons(0);
+  mClientAddress.sin_addr.s_addr = htonl(INADDR_ANY);
 
-  socklen_t client_len = sizeof(client_address);
+  socklen_t client_len = sizeof(mClientAddress);
 
-  bind(socket_fd, (struct sockaddr *) &client_address, client_len);
+  bind(mSocketFd, (struct sockaddr *) &mClientAddress, client_len);
 
-  getsockname(socket_fd, (struct sockaddr *) &client_address, &client_len);
+  getsockname(mSocketFd, (struct sockaddr *) &mClientAddress, &client_len);
 
-  client_port = client_address.sin_port;
+  mClientPort = mClientAddress.sin_port;
 
-  dst_file_path = args.dst_file_path;
-  state = TFTPState::INIT;
+  mBlockNumber = 1;
+  mDestFilePath = args.dst_file_path;
+  mState = TFTPState::INIT;
+  mErrorPacket = std::nullopt;
 
   if (args.src_file_path.has_value()) {
-    mode = Mode::DOWNLOAD;
-    src_file_path = args.src_file_path.value();
+    mMode = Mode::DOWNLOAD;
+    mSrcFilePath = args.src_file_path.value();
   } else
-    mode = Mode::UPLOAD;
+    mMode = Mode::UPLOAD;
 
-  memset(&server_address, 0, sizeof(server_address));
+  memset(&mServerAddress, 0, sizeof(mServerAddress));
 
-  server_address.sin_family = AF_INET;
-  server_address.sin_port = htons(args.port);
-
-  if (inet_pton(AF_INET, args.address.c_str(), &server_address.sin_addr) <= 0) {
-    exit(1);
-  }
+  mServerAddress.sin_family = AF_INET;
+  mServerAddress.sin_port = htons(args.port);
+  inet_pton(AF_INET, args.address.c_str(), &mServerAddress.sin_addr);
 }
 
 void TFTPClient::sendPacket(const TFTPPacket &packet) {
   std::vector<uint8_t> data = packet.serialize();
-
-  sendto(socket_fd, data.data(), data.size(), 0, (struct sockaddr *) &server_address,
-                        sizeof(server_address));
+  sendto(mSocketFd, data.data(), data.size(), 0, (struct sockaddr *) &mServerAddress,
+                        sizeof(mServerAddress));
 
 }
 
 std::unique_ptr<TFTPPacket> TFTPClient::receivePacket() {
   std::vector<uint8_t> buffer(65535);
-
   sockaddr_in from_address = {};
-
   socklen_t from_length = sizeof(from_address);
-
-  ssize_t received = recvfrom(socket_fd, buffer.data(), buffer.size(), 0, (struct sockaddr *) &from_address,
+  ssize_t received = recvfrom(mSocketFd, buffer.data(), buffer.size(), 0, (struct sockaddr *) &from_address,
                               &from_length);
 
-  if (state == TFTPState::SENT_RRQ || state == TFTPState::SENT_WRQ) server_address.sin_port = from_address.sin_port;
-  buffer.resize(received);
+  if (received <= 0) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+      throw TFTP::TimeoutException();
+    } else {
+      throw TFTP::UndefinedException();
+    }
+  }
 
-  auto packet = TFTPPacket::deserialize(buffer);
+  buffer.resize(received);
+  std::unique_ptr<TFTPPacket> packet;
+  try {
+    packet = TFTPPacket::deserialize(buffer);
+  } catch (TFTP::PacketFormatException &e) {
+    throw e;
+  }
 
   std::cerr << packet->formatPacket(inet_ntoa(from_address.sin_addr), ntohs(from_address.sin_port),
-                                    ntohs(client_port));
+                                    ntohs(mClientPort));
+
+  if (mState == TFTPState::SENT_RRQ || mState == TFTPState::SENT_WRQ) {
+    mServerAddress.sin_port = from_address.sin_port;
+    mServerAddress.sin_addr.s_addr = from_address.sin_addr.s_addr;
+    mState = TFTPState::DATA_TRANSFER;
+  }
+
+  if (mServerAddress.sin_port != from_address.sin_port || mServerAddress.sin_addr.s_addr != from_address.sin_addr.s_addr) {
+    throw TFTP::InvalidTIDException();
+  }
 
   return packet;
 }
 
-void TFTPClient::handleDataPacket(std::ofstream &outputFile, DataPacket *data_packet) {
-  uint16_t blockNumber = data_packet->getBlockNumber();
-  ACKPacket ack(blockNumber);
-  sendPacket(ack);
-
-  std::vector<uint8_t> data = data_packet->getData();
-
-  if (data.size() < Options::get("blksize", opts)) {
-    state = TFTPState::FINAL_ACK;
-  }
-  outputFile.write(reinterpret_cast<char *>(data.data()), static_cast<long>(data.size()));
-}
-
 void TFTPClient::requestRead() {
-  std::ofstream outputFile(dst_file_path, std::ios::binary);
-  RRQPacket rrq(src_file_path, transmissionMode, opts);
-  sendPacket(rrq);
+  std::ofstream outputFile(mDestFilePath, std::ios::binary);
+  mState = TFTPState::SENT_RRQ;
+  Options::map_t opts = {};
+  mLastPacket = std::make_unique<RRQPacket>(mSrcFilePath, mTransmissionMode, opts);
 
-  state = TFTPState::SENT_RRQ;
+  while (mState != TFTPState::ERROR && mState != TFTPState::FINAL_ACK) {
 
-  auto packet = receivePacket();
-
-  auto oack_packet = dynamic_cast<OACKPacket *>(packet.get());
-  auto data_packet = dynamic_cast<DataPacket *>(packet.get());
-
-  if (oack_packet) {
-    opts = oack_packet->getOptions();
-
-    ACKPacket ack{0};
-    sendPacket(ack);
-
-    packet = receivePacket();
-
-    data_packet = dynamic_cast<DataPacket *>(packet.get());
-
-    handleDataPacket(outputFile, data_packet);
-
-  } else if (data_packet) {
-    handleDataPacket(outputFile, data_packet);
-  } else {
-    state = TFTPState::ERROR;
-    outputFile.close();
-    return;
-  }
-
-  while (state != TFTPState::FINAL_ACK) {
-//    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-    auto packet = receivePacket();
-
-    auto data_packet = dynamic_cast<DataPacket *>(packet.get());
-    if (data_packet) {
-      handleDataPacket(outputFile, data_packet);
-
-      continue;
+    auto packet = exchangePackets(*mLastPacket, true);
+    if (!packet) {
+      break;
     }
-
-    auto err_packet = dynamic_cast<ErrorPacket *>(packet.get());
-
-    if (err_packet) {
-      //TODO: error handling
-      state = TFTPState::ERROR;
+    auto data_packet = dynamic_cast<DataPacket *>(packet.get());
+    auto error_packet = dynamic_cast<ErrorPacket *>(packet.get());
+    if (error_packet) {
+      mState = TFTPState::ERROR;
       outputFile.close();
       return;
     }
+
+    if (!data_packet) {
+      mState = TFTPState::ERROR;
+      mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
+      break;
+    } else if (data_packet->getBlockNumber() == mBlockNumber) {
+      outputFile.write(reinterpret_cast<const char *>(data_packet->getData().data()), data_packet->getData().size());
+      if (data_packet->getData().size() < Options::get("blksize", mOptions)) {
+        mState = TFTPState::FINAL_ACK;
+      }
+      // Increment block number only after it is valid packet
+      mBlockNumber++;
+      mLastPacket = std::make_unique<ACKPacket>(mBlockNumber - 1);
+    } else if (data_packet->getBlockNumber() > mBlockNumber) {
+      mState = TFTPState::ERROR;
+      mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
+      break;
+    } else if (data_packet->getBlockNumber() < mBlockNumber) {
+      mLastPacket = std::make_unique<ACKPacket>(mBlockNumber - 1);
+    }
+  }
+
+  if (mState == TFTPState::FINAL_ACK) {
+    auto ack_packet = ACKPacket(mBlockNumber - 1);
+    sendPacket(ack_packet);
+  } else if (mErrorPacket.has_value()) {
+    sendPacket(*mErrorPacket);
   }
 
   outputFile.close();
+  return;
 }
 
 void TFTPClient::requestWrite() {
-  WRQPacket wrq(dst_file_path, transmissionMode, opts);
+  WRQPacket wrq(mDestFilePath, mTransmissionMode, mOptions);
 
   sendPacket(wrq);
-  state = TFTPState::SENT_WRQ;
+  mState = TFTPState::SENT_WRQ;
 
   auto packet = receivePacket();
 
@@ -163,22 +163,22 @@ void TFTPClient::requestWrite() {
   auto err_packet = dynamic_cast<ErrorPacket *>(packet.get());
 
   if (oack_packet) {
-    opts = oack_packet->getOptions();
+    mOptions = oack_packet->getOptions();
   } else if (ack_packet) {
 
   } else if (err_packet) {
-    state = TFTPState::ERROR;
+    mState = TFTPState::ERROR;
     return;
   } else {
-    state = TFTPState::ERROR;
+    mState = TFTPState::ERROR;
     return;
   }
 
   uint16_t blockNumber = 1;
-  long blksize = Options::get("blksize", opts);
+  long blksize = Options::get("blksize", mOptions);
 
-  while (state != TFTPState::FINAL_ACK && state != TFTPState::ERROR) {
-    std::vector<uint8_t> data(Options::get("blksize", opts));
+  while (mState != TFTPState::FINAL_ACK && mState != TFTPState::ERROR) {
+    std::vector<uint8_t> data(Options::get("blksize", mOptions));
 
     std::cin.read(reinterpret_cast<char *>(data.data()), blksize);
     size_t bytesRead = std::cin.gcount();
@@ -190,10 +190,27 @@ void TFTPClient::requestWrite() {
     packet = receivePacket();
     auto ack_packet = dynamic_cast<ACKPacket *>(packet.get());
     if (!ack_packet) {
-      state = TFTPState::ERROR;
+      mState = TFTPState::ERROR;
       return;
     }
     blockNumber++;
-    if (bytesRead < blksize) state = TFTPState::FINAL_ACK;
+    if (bytesRead < blksize) mState = TFTPState::FINAL_ACK;
   }
+}
+
+std::unique_ptr<TFTPPacket> TFTPClient::exchangePackets(const TFTPPacket &packet, bool send) {
+  if (send) sendPacket(packet);
+  try {
+    return receivePacket();
+  } catch (TFTP::TimeoutException &e) {
+    mErrorPacket = std::optional(ErrorPacket{0, "Timeout"});
+  } catch (TFTP::InvalidTIDException &e) {
+    mErrorPacket = std::optional(ErrorPacket{5, "Unknown transfer ID"});
+  } catch (TFTP::UndefinedException &e) {
+    mErrorPacket = std::optional(ErrorPacket{0, "Undefined error"});
+  } catch (TFTP::PacketFormatException &e) {
+    mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
+  }
+  mState = TFTPState::ERROR;
+  return nullptr;
 }

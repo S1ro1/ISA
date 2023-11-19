@@ -3,6 +3,7 @@
 //
 
 #include "Connection.h"
+#include "TFTP.h"
 
 #include <utility>
 
@@ -50,7 +51,6 @@ void Connection::serveDownload() {
   while (mState != TFTPState::FINAL_ACK and mState != TFTPState::ERROR) {
     std::vector<char> buffer(65536);
 
-
     if (mBlockNumber == 0) {
       if (Options::isSet(mOptions)) {
         mBlockNumber = 0;
@@ -73,11 +73,8 @@ void Connection::serveDownload() {
     if (error_packet) {
       break;
     }
-
     auto ack_packet = expectPacketType<ACKPacket>(std::move(packet));
-
     if (!ack_packet) break;
-
     auto blockNum = ack_packet->getBlockNumber();
     if (blockNum == mBlockNumber) {
       mBlockNumber++;
@@ -152,7 +149,7 @@ void Connection::serveUpload() {
       mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
       break;
     } else if (data_packet->getBlockNumber() < mBlockNumber) {
-      mLastPacket = std::make_unique<ACKPacket>(mBlockNumber);
+      mLastPacket = std::make_unique<ACKPacket>(mBlockNumber - 1);
     }
   }
 
@@ -172,51 +169,47 @@ void Connection::serveUpload() {
 }
 
 void Connection::sendPacket(const TFTPPacket &packet) {
-
   std::cout << "Sending packet: " << packet.formatPacket(inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port),
                                     ntohs(mConnectionPort)) << "with size: " << packet.serialize().size() << std::endl;
 
 
   std::vector<uint8_t> data = packet.serialize();
   // TODO: Error handling
-  ssize_t sent = sendto(mSocketFd, data.data(), data.size(), 0, (struct sockaddr *) &mClientAddr,
+  sendto(mSocketFd, data.data(), data.size(), 0, (struct sockaddr *) &mClientAddr,
                         sizeof(mClientAddr));
 }
 
 std::unique_ptr<TFTPPacket> Connection::receivePacket() const {
   std::vector<uint8_t> buffer(65535);
-
   sockaddr_in from_address = {};
-
   socklen_t from_length = sizeof(from_address);
-
   ssize_t received = recvfrom(mSocketFd, buffer.data(), buffer.size(), 0, (struct sockaddr *) &from_address,
                               &from_length);
 
+
   if (received <= 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK) {
-      throw TFTPConnection::TimeoutException();
+      throw TFTP::TimeoutException();
     } else {
-      throw TFTPConnection::UndefinedException();
-    }
-  } else {
-    if (from_address.sin_port != mClientAddr.sin_port || from_address.sin_addr.s_addr != mClientAddr.sin_addr.s_addr) {
-      throw TFTPConnection::InvalidTIDException();
+      throw TFTP::UndefinedException();
     }
   }
 
   buffer.resize(received);
-
   std::unique_ptr<TFTPPacket> packet;
-
   try {
     packet = TFTPPacket::deserialize(buffer);
-  } catch (TFTPFormatError &e) {
+  } catch (TFTP::PacketFormatException &e) {
     throw e;
   }
 
   std::cerr << packet->formatPacket(inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port),
                                     ntohs(mConnectionPort));
+
+  if (from_address.sin_port != mClientAddr.sin_port || from_address.sin_addr.s_addr != mClientAddr.sin_addr.s_addr) {
+    throw TFTP::InvalidTIDException();
+  }
+
   return packet;
 }
 
@@ -240,20 +233,20 @@ std::unique_ptr<TFTPPacket> Connection::sendAndReceive(const TFTPPacket& packetT
     }
     try {
       return receivePacket();
-    } catch (TFTPConnection::TimeoutException &e) {
+    } catch (TFTP::TimeoutException &e) {
       retries++;
       if (retries == 3) {
         mErrorPacket = ErrorPacket(0, "Timeout");
         break;
       }
       continue;
-    } catch (TFTPConnection::UndefinedException &e) {
+    } catch (TFTP::UndefinedException &e) {
       mErrorPacket = ErrorPacket(0, "Undefined error");
       break;
-    } catch (TFTPConnection::InvalidTIDException &e) {
+    } catch (TFTP::InvalidTIDException &e) {
       mErrorPacket = ErrorPacket(5, "Unknown transfer ID");
       break;
-    } catch (TFTPFormatError &e) {
+    } catch (TFTP::PacketFormatException &e) {
       mErrorPacket = ErrorPacket(4, "Illegal TFTP operation");
       break;
     }

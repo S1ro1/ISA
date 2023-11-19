@@ -21,24 +21,6 @@
 #include "Options.h"
 
 
-namespace TFTPConnection {
-  class TimeoutException final : public std::runtime_error {
-  public:
-    TimeoutException() : std::runtime_error("Timeout") {}
-  };
-
-  class UndefinedException final : public std::runtime_error {
-  public:
-    UndefinedException() : std::runtime_error("Undefined error") {}
-  };
-
-  class InvalidTIDException final : public std::runtime_error {
-  public:
-    InvalidTIDException() : std::runtime_error("Invalid TID") {}
-  };
-}
-
-
 class Connection {
   int mSocketFd;
   uint16_t mConnectionPort;

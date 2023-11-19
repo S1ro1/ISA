@@ -3,9 +3,10 @@
 //
 
 #include "TFTPPacket.h"
+#include "TFTP.h"
 
 std::unique_ptr<TFTPPacket> TFTPPacket::deserialize(const std::vector<uint8_t> &data) {
-  if (data.size() < 2) throw TFTPFormatError();
+  if (data.size() < 2) throw TFTP::PacketFormatException();
   uint16_t opcode = (data[0] << 8) | data[1];
 
   try {
@@ -23,9 +24,9 @@ std::unique_ptr<TFTPPacket> TFTPPacket::deserialize(const std::vector<uint8_t> &
       case 6:
         return OACKPacket::deserializeFromData(data);
       default:
-        throw TFTPFormatError();
+        throw TFTP::PacketFormatException();
     }
-  } catch (TFTPFormatError &e) {
+  } catch (TFTP::PacketFormatException &e) {
     throw e;
   }
 }
@@ -70,7 +71,7 @@ std::unique_ptr<RRQPacket> RRQPacket::deserializeFromData(const std::vector<uint
   try {
     opts = Options::parse(data, idx);
   } catch (Options::InvalidFormatException &e) {
-    throw TFTPFormatError();
+    throw TFTP::PacketFormatException();
   }
   return std::make_unique<RRQPacket>(fname, mode, opts);
 }
@@ -121,7 +122,7 @@ std::unique_ptr<WRQPacket> WRQPacket::deserializeFromData(const std::vector<uint
   try {
     opts = Options::parse(data, idx);
   } catch (Options::InvalidFormatException &e) {
-    throw TFTPFormatError();
+    throw TFTP::PacketFormatException();
   }
   return std::make_unique<WRQPacket>(fname, mode, opts);
 }
@@ -153,7 +154,7 @@ std::vector<uint8_t> DataPacket::serialize() const {
 
 std::unique_ptr<DataPacket> DataPacket::deserializeFromData(const std::vector<uint8_t> &data) {
   if (data.size() < 4) {
-    throw TFTPFormatError();
+    throw TFTP::PacketFormatException();
   }
   uint16_t blockNum = (data[2] << 8) | data[3];
   std::vector<uint8_t> outData(data.begin() + 4, data.end());
@@ -178,7 +179,7 @@ std::vector<uint8_t> ACKPacket::serialize() const {
 
 std::unique_ptr<ACKPacket> ACKPacket::deserializeFromData(const std::vector<uint8_t> &data) {
   if (data.size() != 4) {
-    throw TFTPFormatError();
+    throw TFTP::PacketFormatException();
   }
 
   uint16_t blockNum = (data[2] << 8) | data[3];
@@ -208,7 +209,7 @@ std::vector<uint8_t> ErrorPacket::serialize() const {
 
 std::unique_ptr<ErrorPacket> ErrorPacket::deserializeFromData(const std::vector<uint8_t> &data) {
   if (data.size() < 4) {
-    throw TFTPFormatError();
+    throw TFTP::PacketFormatException();
   }
 
   uint16_t errorCode = (data[2] << 8) | data[3];
@@ -250,7 +251,7 @@ std::unique_ptr<OACKPacket> OACKPacket::deserializeFromData(const std::vector<ui
   try {
     opts = Options::parse(data, idx);
   } catch (Options::InvalidFormatException &e) {
-    throw TFTPFormatError();
+    throw TFTP::PacketFormatException();
   }
 
   return std::make_unique<OACKPacket>(opts);

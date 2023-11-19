@@ -3,6 +3,7 @@
 //
 
 #include "TFTPServer.h"
+#include "TFTP.h"
 
 volatile sig_atomic_t running = 1;
 
@@ -50,7 +51,7 @@ void TFTPServer::listen() {
     std::unique_ptr<TFTPPacket> packet;
     try {
       packet = TFTPPacket::deserialize(buffer);
-    } catch (TFTPFormatError &e) {
+    } catch (TFTP::PacketFormatException &e) {
       auto error_packet = ErrorPacket{4, "Illegal TFTP operation"}.serialize();
       sendto(main_socket_fd, error_packet.data(), error_packet.size(), 0, (struct sockaddr *) &from_address,
                             sizeof(from_address));

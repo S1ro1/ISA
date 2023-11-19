@@ -11,6 +11,7 @@ enum class TFTPState {
   INIT,
   SENT_RRQ,
   RECEIVED_RRQ,
+  DATA_TRANSFER,
   SENT_WRQ,
   RECEIVED_WRQ,
   FINAL_ACK,

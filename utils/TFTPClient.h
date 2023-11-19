@@ -18,23 +18,28 @@
 #include "TFTPPacket.h"
 #include "utils.h"
 #include "Options.h"
+#include "TFTP.h"
 
 
 class TFTPClient {
-  int socket_fd;
-  sockaddr_in server_address;
-  sockaddr_in client_address;
+  int mSocketFd;
+  sockaddr_in mServerAddress;
+  sockaddr_in mClientAddress;
 
-  uint16_t client_port;
+  uint16_t mClientPort;
 
-  TFTPState state;
-  std::string transmissionMode = "octet";
+  TFTPState mState;
+  std::string mTransmissionMode = "octet";
 
-  Mode mode;
-  std::string src_file_path;
-  std::string dst_file_path;
+  int mBlockNumber;
+  Mode mMode;
+  std::string mSrcFilePath;
+  std::string mDestFilePath;
+  std::optional<ErrorPacket> mErrorPacket;
 
-  Options::map_t opts;
+  std::unique_ptr<TFTPPacket> mLastPacket;
+
+  Options::map_t mOptions;
 
   void sendPacket(const TFTPPacket &packet);
 
@@ -44,7 +49,7 @@ public:
   explicit TFTPClient(const ClientArgs &args, Options::map_t opts);
 
   ~TFTPClient() {
-    close(socket_fd);
+    close(mSocketFd);
   }
 
   void transmit();
@@ -54,6 +59,8 @@ public:
   void requestWrite();
 
   void handleDataPacket(std::ofstream &outputFile, DataPacket *data_packet);
+
+  std::unique_ptr<TFTPPacket> exchangePackets(const TFTPPacket &packet, bool send);
 };
 
 
