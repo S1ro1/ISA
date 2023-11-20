@@ -4,7 +4,6 @@
 
 #include "ArgParser.h"
 
-
 ClientArgs ArgParser::parseClientArgs(char *argv[], int argc) {
   int opt;
 

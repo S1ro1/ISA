@@ -5,12 +5,12 @@
 #ifndef ISA_TEST_IINPUTWRAPPER_H
 #define ISA_TEST_IINPUTWRAPPER_H
 
-#include <string>
-#include <sstream>
 #include <fstream>
 #include <iostream>
-#include <vector>
 #include <optional>
+#include <sstream>
+#include <string>
+#include <vector>
 
 /**
  * @brief Base class for input wrappers
@@ -21,20 +21,20 @@ protected:
   std::streamsize mSize = 0;
 
 public:
-    /**
+  /**
      * @return number of characters read by last read() call
      */
-    [[nodiscard]] virtual std::streamsize gcount() const { return mSize; }
-    virtual ~IInputWrapper() = default;
-    /**
+  [[nodiscard]] virtual std::streamsize gcount() const { return mSize; }
+  virtual ~IInputWrapper() = default;
+  /**
      * @brief reads n characters from input stream and stores them in os
      * @param os array to store characters in
      * @param n number of characters to read
      */
-    virtual void read(char *os, std::streamsize n) = 0;
+  virtual void read(char *os, std::streamsize n) = 0;
 
-    [[nodiscard]] virtual bool is_open() const { return true; }
-    [[nodiscard]] virtual bool eof() const = 0;
+  [[nodiscard]] virtual bool is_open() const { return true; }
+  [[nodiscard]] virtual bool eof() const = 0;
 };
 
 
@@ -54,8 +54,9 @@ namespace NetAscii {
    */
   class InputFile : public InputWrapper {
     std::ifstream file;
+
   public:
-    explicit InputFile(const std::string& filename);
+    explicit InputFile(const std::string &filename);
     ~InputFile() override;
     void read(char *os, std::streamsize n) override;
     bool is_open() const override { return file.is_open(); }
@@ -71,7 +72,7 @@ namespace NetAscii {
     void read(char *os, std::streamsize n) override;
     bool eof() const override { return std::cin.eof(); }
   };
-}
+}// namespace NetAscii
 
 
 /**
@@ -85,8 +86,9 @@ namespace Octet {
    */
   class InputFile : public InputWrapper {
     std::ifstream file;
+
   public:
-    explicit InputFile(const std::string& filename);
+    explicit InputFile(const std::string &filename);
     ~InputFile() override;
     void read(char *os, std::streamsize n) override;
     bool is_open() const override { return file.is_open(); }
@@ -102,6 +104,6 @@ namespace Octet {
     void read(char *os, std::streamsize n) override;
     bool eof() const override { return std::cin.eof(); }
   };
-}
+}// namespace Octet
 
 #endif//ISA_TEST_IINPUTWRAPPER_H

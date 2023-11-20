@@ -51,21 +51,21 @@ namespace Options {
     return options;
   }
 
-  std::vector<uint8_t> serialize(const map_t& options) {
+  std::vector<uint8_t> serialize(const map_t &options) {
     std::vector<uint8_t> output;
 
-    for (const auto&[order, item]: options) {
-      const auto&[key, value, set] = item;
+    for (const auto &[order, item]: options) {
+      const auto &[key, value, set] = item;
 
       output.insert(output.end(), key.begin(), key.end());
       output.push_back(0);
 
       if (std::holds_alternative<std::string>(value)) {
-        const auto& str = std::get<std::string>(value);
+        const auto &str = std::get<std::string>(value);
         output.insert(output.end(), str.begin(), str.end());
       } else {
-        const auto& num = std::get<long>(value);
-        const auto& str = std::to_string(num);
+        const auto &num = std::get<long>(value);
+        const auto &str = std::to_string(num);
         output.insert(output.end(), str.begin(), str.end());
       }
 
@@ -133,7 +133,7 @@ namespace Options {
     return validated;
   }
 
-  long get(const std::string& key, const map_t& options) {
+  long get(const std::string &key, const map_t &options) {
     for (const auto &[order, item]: options) {
       const auto &[key_, value, set] = item;
       if (key == key_) {
@@ -145,11 +145,11 @@ namespace Options {
     return 0;
   }
 
-  long validateInRange(const std::string& value, long min, long max) {
+  long validateInRange(const std::string &value, long min, long max) {
     long result;
     try {
       result = std::stol(value);
-    } catch (std::exception& e) {
+    } catch (std::exception &e) {
       throw InvalidValueException();
     }
 
@@ -160,7 +160,7 @@ namespace Options {
     return result;
   }
 
-  bool isAny(const map_t& options) {
+  bool isAny(const map_t &options) {
     for (auto &[order, item]: options) {
       auto &[key, value, set] = item;
       if (set) return true;
@@ -168,11 +168,11 @@ namespace Options {
     return false;
   }
 
-  bool isSet(const std::string& key, const map_t& options) {
+  bool isSet(const std::string &key, const map_t &options) {
     for (auto &[order, item]: options) {
       auto &[key_, value, set] = item;
       if (key == key_ && set) return true;
     }
     return false;
   }
-}
+}// namespace Options

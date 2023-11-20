@@ -2,28 +2,8 @@
 // Created by Matej Sirovatka on 19.11.2023.
 //
 
-#ifndef ISA_PROJECT_TFTP_H
-#define ISA_PROJECT_TFTP_H
-
-#include "ArgParser.h"
-#include "Options.h"
-#include "TFTPPacket.h"
-#include "utils.h"
-#include <any>
-#include <arpa/inet.h>
-#include <array>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <netinet/in.h>
-#include <set>
-#include <string>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <utility>
-#include <vector>
+#ifndef ISA_PROJECT_COMMON_H
+#define ISA_PROJECT_COMMON_H
 
 namespace TFTP {
   class TimeoutException final : public std::runtime_error {
@@ -45,6 +25,18 @@ namespace TFTP {
   public:
     PacketFormatException() : runtime_error("Invalid packet format") {}
   };
+
+  enum class State {
+    INIT,
+    SENT_RRQ,
+    RECEIVED_RRQ,
+    DATA_TRANSFER,
+    SENT_WRQ,
+    RECEIVED_WRQ,
+    FINAL_ACK,
+    ERROR,
+    FINISHED
+  };
 }// namespace TFTP
 
-#endif//ISA_PROJECT_TFTP_H
+#endif//ISA_PROJECT_COMMON_H

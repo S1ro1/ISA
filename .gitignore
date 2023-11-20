@@ -7,3 +7,5 @@ build
 test.sh
 obj
 bin
+tftp-server
+tftp-client

@@ -5,12 +5,12 @@
 #ifndef ISA_PROJECT_OPTIONS_H
 #define ISA_PROJECT_OPTIONS_H
 
-#include <variant>
-#include <map>
-#include <string>
-#include <vector>
-#include <stdexcept>
 #include <iostream>
+#include <map>
+#include <stdexcept>
+#include <string>
+#include <variant>
+#include <vector>
 
 
 namespace Options {
@@ -31,19 +31,19 @@ namespace Options {
 
   map_t create(long blksize, long timeout, long tsize);
 
-  [[nodiscard]] std::vector<uint8_t> serialize(const map_t& options);
+  [[nodiscard]] std::vector<uint8_t> serialize(const map_t &options);
 
-  [[nodiscard]] std::string format(const map_t& options);
+  [[nodiscard]] std::string format(const map_t &options);
 
-  [[nodiscard]] map_t validate(const map_t& options);
+  [[nodiscard]] map_t validate(const map_t &options);
 
-  [[nodiscard]] long get(const std::string& key, const map_t& options);
+  [[nodiscard]] long get(const std::string &key, const map_t &options);
 
-  long validateInRange(const std::string& value, long min, long max);
+  long validateInRange(const std::string &value, long min, long max);
 
-  bool isAny(const map_t& options);
+  bool isAny(const map_t &options);
 
-  bool isSet(const std::string& key, const map_t& options);
-}
+  bool isSet(const std::string &key, const map_t &options);
+}// namespace Options
 
 #endif//ISA_PROJECT_OPTIONS_H

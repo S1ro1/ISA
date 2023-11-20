@@ -2,15 +2,15 @@
 // Created by Matej Sirovatka on 09.10.2023.
 //
 
-#include "TFTPClient.h"
+#include "Client.h"
 
-volatile sig_atomic_t running = 1;
+volatile sig_atomic_t runningClient = 1;
 
-void siginthandler([[maybe_unused]] int signum) {
-  running = 0;
+void ClientSigintHandler([[maybe_unused]] int signum) {
+  runningClient = 0;
 }
 
-void TFTPClient::transmit() {
+void TFTP::Client::transmit() {
   if (mMode == Mode::DOWNLOAD) {
     requestRead();
   } else {
@@ -18,7 +18,7 @@ void TFTPClient::transmit() {
   }
 }
 
-TFTPClient::TFTPClient(const ClientArgs &args, Options::map_t opts) : mOptions(std::move(opts)) {
+TFTP::Client::Client(const ClientArgs &args, Options::map_t opts) : mOptions(std::move(opts)) {
   mSocketFd = socket(AF_INET, SOCK_DGRAM, 0);
 
   mClientAddress = {};
@@ -36,7 +36,7 @@ TFTPClient::TFTPClient(const ClientArgs &args, Options::map_t opts) : mOptions(s
   // Set up the SIGINT handler
   struct sigaction sa {};
   memset(&sa, 0, sizeof(sa));
-  sa.sa_handler = siginthandler;
+  sa.sa_handler = ClientSigintHandler;
   sigaction(SIGINT, &sa, nullptr);
 
   // remove SA_RESTART from the SIGINT handler
@@ -48,7 +48,7 @@ TFTPClient::TFTPClient(const ClientArgs &args, Options::map_t opts) : mOptions(s
 
   mBlockNumber = 1;
   mDestFilePath = args.dst_file_path;
-  mState = TFTPState::INIT;
+  mState = State::INIT;
   mErrorPacket = std::nullopt;
 
   if (args.src_file_path.has_value()) {
@@ -64,14 +64,13 @@ TFTPClient::TFTPClient(const ClientArgs &args, Options::map_t opts) : mOptions(s
   inet_pton(AF_INET, args.address.c_str(), &mServerAddress.sin_addr);
 }
 
-void TFTPClient::sendPacket(const TFTPPacket &packet) {
+void TFTP::Client::sendPacket(const Packet &packet) {
   std::vector<uint8_t> data = packet.serialize();
   sendto(mSocketFd, data.data(), data.size(), 0, (struct sockaddr *) &mServerAddress,
-                        sizeof(mServerAddress));
-
+         sizeof(mServerAddress));
 }
 
-std::unique_ptr<TFTPPacket> TFTPClient::receivePacket() {
+std::unique_ptr<TFTP::Packet> TFTP::Client::receivePacket() {
   std::vector<uint8_t> buffer(65535);
   sockaddr_in from_address = {};
   socklen_t from_length = sizeof(from_address);
@@ -87,9 +86,9 @@ std::unique_ptr<TFTPPacket> TFTPClient::receivePacket() {
   }
 
   buffer.resize(received);
-  std::unique_ptr<TFTPPacket> packet;
+  std::unique_ptr<Packet> packet;
   try {
-    packet = TFTPPacket::deserialize(buffer);
+    packet = Packet::deserialize(buffer);
   } catch (TFTP::PacketFormatException &e) {
     throw e;
   }
@@ -97,10 +96,10 @@ std::unique_ptr<TFTPPacket> TFTPClient::receivePacket() {
   std::cerr << packet->formatPacket(inet_ntoa(from_address.sin_addr), ntohs(from_address.sin_port),
                                     ntohs(mClientPort));
 
-  if (mState == TFTPState::SENT_RRQ || mState == TFTPState::SENT_WRQ) {
+  if (mState == State::SENT_RRQ || mState == State::SENT_WRQ) {
     mServerAddress.sin_port = from_address.sin_port;
     mServerAddress.sin_addr.s_addr = from_address.sin_addr.s_addr;
-    mState = TFTPState::DATA_TRANSFER;
+    mState = State::DATA_TRANSFER;
   }
 
   if (mServerAddress.sin_port != from_address.sin_port || mServerAddress.sin_addr.s_addr != from_address.sin_addr.s_addr) {
@@ -110,7 +109,7 @@ std::unique_ptr<TFTPPacket> TFTPClient::receivePacket() {
   return packet;
 }
 
-void TFTPClient::requestRead() {
+void TFTP::Client::requestRead() {
   std::unique_ptr<IOutputWrapper> outputFile;
   if (mTransmissionMode == "octet") {
     outputFile = std::make_unique<Octet::OutputFile>(mDestFilePath);
@@ -118,11 +117,11 @@ void TFTPClient::requestRead() {
     outputFile = std::make_unique<NetAscii::OutputFile>(mDestFilePath);
   }
 
-  mState = TFTPState::SENT_RRQ;
+  mState = State::SENT_RRQ;
   Options::map_t opts = {};
   mLastPacket = std::make_unique<RRQPacket>(mSrcFilePath, mTransmissionMode, opts);
 
-  while (mState != TFTPState::ERROR && mState != TFTPState::FINAL_ACK && running) {
+  while (mState != State::ERROR && mState != State::FINAL_ACK && runningClient) {
 
     auto packet = exchangePackets(*mLastPacket, true);
     if (!packet) {
@@ -131,24 +130,24 @@ void TFTPClient::requestRead() {
     auto data_packet = dynamic_cast<DataPacket *>(packet.get());
     auto error_packet = dynamic_cast<ErrorPacket *>(packet.get());
     if (error_packet) {
-      mState = TFTPState::ERROR;
+      mState = State::ERROR;
       break;
     }
 
     if (!data_packet) {
-      mState = TFTPState::ERROR;
+      mState = State::ERROR;
       mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
       break;
     } else if (data_packet->getBlockNumber() == mBlockNumber) {
       outputFile->write(data_packet->getData());
       if (data_packet->getData().size() < Options::get("blksize", mOptions)) {
-        mState = TFTPState::FINAL_ACK;
+        mState = State::FINAL_ACK;
       }
       // Increment block number only after it is valid packet
       mBlockNumber++;
       mLastPacket = std::make_unique<ACKPacket>(mBlockNumber - 1);
     } else if (data_packet->getBlockNumber() > mBlockNumber) {
-      mState = TFTPState::ERROR;
+      mState = State::ERROR;
       mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
       break;
     } else if (data_packet->getBlockNumber() < mBlockNumber) {
@@ -156,7 +155,7 @@ void TFTPClient::requestRead() {
     }
   }
 
-  if (mState == TFTPState::FINAL_ACK) {
+  if (mState == State::FINAL_ACK) {
     auto ack_packet = ACKPacket(mBlockNumber - 1);
     sendPacket(ack_packet);
   } else if (mErrorPacket.has_value()) {
@@ -164,21 +163,21 @@ void TFTPClient::requestRead() {
   }
 }
 
-void TFTPClient::requestWrite() {
+void TFTP::Client::requestWrite() {
   std::unique_ptr<IInputWrapper> inputFile;
   if (mTransmissionMode == "octet") {
     inputFile = std::make_unique<Octet::InputStdin>();
   } else {
     inputFile = std::make_unique<NetAscii::InputStdin>();
   }
-  mState = TFTPState::SENT_WRQ;
+  mState = State::SENT_WRQ;
   Options::map_t opts = {};
   mLastPacket = std::make_unique<WRQPacket>(mDestFilePath, mTransmissionMode, opts);
   mBlockNumber = 0;
 
   bool toSend = true;
 
-  while (mState != TFTPState::ERROR && mState != TFTPState::FINAL_ACK && running) {
+  while (mState != State::ERROR && mState != State::FINAL_ACK && runningClient) {
     auto packet = exchangePackets(*mLastPacket, toSend);
 
     if (!packet) {
@@ -188,19 +187,19 @@ void TFTPClient::requestWrite() {
     auto ack_packet = dynamic_cast<ACKPacket *>(packet.get());
     auto error_packet = dynamic_cast<ErrorPacket *>(packet.get());
     if (error_packet) {
-      mState = TFTPState::ERROR;
+      mState = State::ERROR;
       break;
     }
 
     if (!ack_packet) {
-      mState = TFTPState::ERROR;
+      mState = State::ERROR;
       mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
       break;
     } else if (ack_packet->getBlockNumber() == mBlockNumber) {
 
       auto sent_packet = dynamic_cast<DataPacket *>(mLastPacket.get());
       if (sent_packet && sent_packet->getData().size() < Options::get("blksize", mOptions)) {
-        mState = TFTPState::FINAL_ACK;
+        mState = State::FINAL_ACK;
         break;
       }
 
@@ -211,7 +210,7 @@ void TFTPClient::requestWrite() {
       data.resize(std::cin.gcount());
       mLastPacket = std::make_unique<DataPacket>(mBlockNumber, data);
     } else if (ack_packet->getBlockNumber() > mBlockNumber) {
-      mState = TFTPState::ERROR;
+      mState = State::ERROR;
       mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
       break;
     } else if (ack_packet->getBlockNumber() < mBlockNumber) {
@@ -224,7 +223,7 @@ void TFTPClient::requestWrite() {
   }
 }
 
-std::unique_ptr<TFTPPacket> TFTPClient::exchangePackets(const TFTPPacket &packet, bool send) {
+std::unique_ptr<TFTP::Packet> TFTP::Client::exchangePackets(const Packet &packet, bool send) {
   if (send) sendPacket(packet);
   try {
     return receivePacket();
@@ -237,6 +236,6 @@ std::unique_ptr<TFTPPacket> TFTPClient::exchangePackets(const TFTPPacket &packet
   } catch (TFTP::PacketFormatException &e) {
     mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
   }
-  mState = TFTPState::ERROR;
+  mState = State::ERROR;
   return nullptr;
 }

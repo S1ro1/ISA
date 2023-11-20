@@ -13,9 +13,9 @@ namespace NetAscii {
     mFile.close();
   }
 
-  void OutputFile::write(const std::vector<uint8_t>& buffer) {
+  void OutputFile::write(const std::vector<uint8_t> &buffer) {
 
-    for (auto c : buffer) {
+    for (auto c: buffer) {
       if (c == '\r') {
         if (mWasCr) mFile << '\r';
         mWasCr = true;
@@ -42,7 +42,7 @@ namespace NetAscii {
       }
     }
   }
-}
+}// namespace NetAscii
 
 namespace Octet {
   OutputFile::OutputFile(const std::string &filename) {
@@ -53,7 +53,7 @@ namespace Octet {
     mFile.close();
   }
 
-  void OutputFile::write(const std::vector<uint8_t>& buffer) {
-    mFile.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
+  void OutputFile::write(const std::vector<uint8_t> &buffer) {
+    mFile.write(reinterpret_cast<const char *>(buffer.data()), buffer.size());
   }
-}
+}// namespace Octet

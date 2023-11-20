@@ -7,18 +7,6 @@
 
 #include <iostream>
 
-enum class TFTPState {
-  INIT,
-  SENT_RRQ,
-  RECEIVED_RRQ,
-  DATA_TRANSFER,
-  SENT_WRQ,
-  RECEIVED_WRQ,
-  FINAL_ACK,
-  ERROR,
-  FINISHED
-};
-
 enum class Mode {
   DOWNLOAD,
   UPLOAD,

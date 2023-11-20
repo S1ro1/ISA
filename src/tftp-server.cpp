@@ -1,12 +1,10 @@
-#include <iostream>
-
+#include "tftp/Server.h"
 #include "utils/ArgParser.h"
-#include "utils/TFTPServer.h"
 
 int main(int argc, char *argv[]) {
   ServerArgs args = ArgParser::parseServerArgs(argv, argc);
 
-  TFTPServer server{args};
+  TFTP::Server server{args};
 
   server.listen();
 

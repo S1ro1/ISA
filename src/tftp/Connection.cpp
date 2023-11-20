@@ -3,17 +3,14 @@
 //
 
 #include "Connection.h"
-#include "TFTP.h"
 
-#include <utility>
-
-Connection::Connection(std::string file, Options::map_t options, sockaddr_in client_address, std::string transmission_mode) {
+TFTP::Connection::Connection(std::string file, Options::map_t options, sockaddr_in client_address, std::string transmission_mode) {
   mFilePath = std::move(file);
   mOptions = std::move(options);
   mTransmissionMode = std::move(transmission_mode);
 
   mBlockNumber = 0;
-  mState = TFTPState::INIT;
+  mState = State::INIT;
   mSocketFd = socket(AF_INET, SOCK_DGRAM, 0);
   mClientAddr = client_address;
 
@@ -38,8 +35,8 @@ Connection::Connection(std::string file, Options::map_t options, sockaddr_in cli
   mLastPacket = nullptr;
 }
 
-void Connection::serveDownload() {
-  mState = TFTPState::RECEIVED_RRQ;
+void TFTP::Connection::serveDownload() {
+  mState = State::RECEIVED_RRQ;
 
   std::unique_ptr<IInputWrapper> input_file;
   if (mTransmissionMode == "octet") {
@@ -48,26 +45,26 @@ void Connection::serveDownload() {
     input_file = std::make_unique<NetAscii::InputFile>(mFilePath);
   } else {
     sendPacket(ErrorPacket{4, "Illegal TFTP operation"});
-    mState = TFTPState::FINISHED;
+    mState = State::FINISHED;
     return;
   }
 
   if (!input_file->is_open()) {
     sendPacket(ErrorPacket{1, "File not found"});
-    mState = TFTPState::FINISHED;
+    mState = State::FINISHED;
     return;
   }
 
   mBlockNumber = 0;
   bool send = true;
-  while (mState != TFTPState::FINAL_ACK and mState != TFTPState::ERROR) {
+  while (mState != State::FINAL_ACK and mState != State::ERROR) {
     std::vector<char> buffer(65536);
 
     if (mBlockNumber == 0) {
       if (Options::isAny(mOptions)) {
         mBlockNumber = 0;
         Options::map_t oack_options;
-        for (auto &[order, item] : mOptions) {
+        for (auto &[order, item]: mOptions) {
           auto &[key, value, set] = item;
           if (set) oack_options[order] = item;
         }
@@ -102,7 +99,7 @@ void Connection::serveDownload() {
       if (input_file->eof()) break;
 
     } else if (blockNum > mBlockNumber) {
-      mState = TFTPState::ERROR;
+      mState = State::ERROR;
       mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
       break;
     } else if (blockNum < mBlockNumber) {
@@ -114,14 +111,14 @@ void Connection::serveDownload() {
     sendPacket(*mErrorPacket);
   }
 
-  mState = TFTPState::FINISHED;
+  mState = State::FINISHED;
 }
 
-void Connection::serveUpload() {
-  mState = TFTPState::RECEIVED_WRQ;
+void TFTP::Connection::serveUpload() {
+  mState = State::RECEIVED_WRQ;
   if (std::filesystem::exists(mFilePath)) {
     sendPacket(ErrorPacket{6, "File already exists"});
-    mState = TFTPState::FINISHED;
+    mState = State::FINISHED;
     return;
   }
 
@@ -129,7 +126,7 @@ void Connection::serveUpload() {
   mLastPacket = std::make_unique<ACKPacket>(mBlockNumber - 1);
 
   Options::map_t oack_options;
-  for (auto &[order, item] : mOptions) {
+  for (auto &[order, item]: mOptions) {
     auto &[key, value, set] = item;
     if (set) oack_options[order] = item;
   }
@@ -143,17 +140,17 @@ void Connection::serveUpload() {
     output_file = std::make_unique<NetAscii::OutputFile>(mFilePath);
   } else {
     sendPacket(ErrorPacket{4, "Illegal TFTP operation"});
-    mState = TFTPState::FINISHED;
+    mState = State::FINISHED;
     return;
   }
 
   if (!output_file->is_open() or !output_file->good()) {
     sendPacket(ErrorPacket{2, "Access violation"});
-    mState = TFTPState::FINISHED;
+    mState = State::FINISHED;
     return;
   }
 
-  while (mState != TFTPState::FINAL_ACK && mState != TFTPState::ERROR) {
+  while (mState != State::FINAL_ACK && mState != State::ERROR) {
     auto packet = sendAndReceive(*mLastPacket, true);
 
     if (!packet) break;
@@ -171,13 +168,13 @@ void Connection::serveUpload() {
     if (data_packet->getBlockNumber() == mBlockNumber) {
       output_file->write(data_packet->getData());
       if (data_packet->getData().size() < Options::get("blksize", mOptions)) {
-        mState = TFTPState::FINAL_ACK;
+        mState = State::FINAL_ACK;
       }
       // Increment block number only after it is valid packet
       mBlockNumber++;
       mLastPacket = std::make_unique<ACKPacket>(mBlockNumber - 1);
     } else if (data_packet->getBlockNumber() > mBlockNumber) {
-      mState = TFTPState::ERROR;
+      mState = State::ERROR;
       mErrorPacket = std::optional(ErrorPacket{4, "Illegal TFTP operation"});
       break;
     } else if (data_packet->getBlockNumber() < mBlockNumber) {
@@ -186,28 +183,28 @@ void Connection::serveUpload() {
   }
 
   // Success
-  if (mState == TFTPState::FINAL_ACK) {
+  if (mState == State::FINAL_ACK) {
     auto ack_packet = ACKPacket(mBlockNumber - 1);
     sendPacket(ack_packet);
-    mState = TFTPState::FINISHED;
+    mState = State::FINISHED;
     return;
   }
 
   // mState should only be ERROR here
   if (mErrorPacket.has_value()) {
     sendPacket(*mErrorPacket);
-    mState = TFTPState::FINISHED;
+    mState = State::FINISHED;
   }
   std::filesystem::remove(mFilePath);
 }
 
-void Connection::sendPacket(const TFTPPacket &packet) {
+void TFTP::Connection::sendPacket(const Packet &packet) {
   std::vector<uint8_t> data = packet.serialize();
   sendto(mSocketFd, data.data(), data.size(), 0, (struct sockaddr *) &mClientAddr,
-                        sizeof(mClientAddr));
+         sizeof(mClientAddr));
 }
 
-std::unique_ptr<TFTPPacket> Connection::receivePacket() const {
+std::unique_ptr<TFTP::Packet> TFTP::Connection::receivePacket() const {
   std::vector<uint8_t> buffer(65535);
   sockaddr_in from_address = {};
   socklen_t from_length = sizeof(from_address);
@@ -224,9 +221,9 @@ std::unique_ptr<TFTPPacket> Connection::receivePacket() const {
   }
 
   buffer.resize(received);
-  std::unique_ptr<TFTPPacket> packet;
+  std::unique_ptr<Packet> packet;
   try {
-    packet = TFTPPacket::deserialize(buffer);
+    packet = Packet::deserialize(buffer);
   } catch (TFTP::PacketFormatException &e) {
     throw e;
   }
@@ -241,8 +238,8 @@ std::unique_ptr<TFTPPacket> Connection::receivePacket() const {
   return packet;
 }
 
-void Connection::cleanup() {
-  if (mState != TFTPState::FINISHED) {
+void TFTP::Connection::cleanup() {
+  if (mState != State::FINISHED) {
     sendPacket(ErrorPacket{0, "Server shutting down"});
   }
 }
@@ -253,7 +250,7 @@ void Connection::cleanup() {
  * @param send whether to send packet, or just wait
  * @return received, packet, nullptr in case of failure
  */
-std::unique_ptr<TFTPPacket> Connection::sendAndReceive(const TFTPPacket& packetToSend, bool send) {
+std::unique_ptr<TFTP::Packet> TFTP::Connection::sendAndReceive(const Packet &packetToSend, bool send) {
   int retries = 0;
   while (retries < 3) {
     if (send) {
@@ -279,6 +276,6 @@ std::unique_ptr<TFTPPacket> Connection::sendAndReceive(const TFTPPacket& packetT
       break;
     }
   }
-  mState = TFTPState::ERROR;
+  mState = State::ERROR;
   return nullptr;
 }
