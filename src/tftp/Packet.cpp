@@ -233,7 +233,7 @@ std::unique_ptr<TFTP::ErrorPacket> TFTP::ErrorPacket::deserializeFromData(const 
 
 std::string TFTP::ErrorPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const {
   std::string result =
-          "ERROR " + src_ip + ":" + std::to_string(port) + " " + std::to_string(mErrorCode) + " " + "\"" + mErrorMessage +
+          "ERROR " + src_ip + ":" + std::to_string(port) + ":" + std::to_string(dst_port) + " " + std::to_string(mErrorCode) + " " + "\"" + mErrorMessage +
           "\"\n";
 
   return result;
