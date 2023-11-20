@@ -5,8 +5,8 @@
 #ifndef ISA_PROJECT_SERVER_H
 #define ISA_PROJECT_SERVER_H
 
-#include <thread>
 #include <csignal>
+#include <thread>
 
 #include "../utils/ArgParser.h"
 #include "Connection.h"
@@ -14,12 +14,12 @@
 
 namespace TFTP {
   class Server {
-    int main_socket_fd;
-    sockaddr_in server_address;
-    std::string root_dir;
+    int mMainSocketFd;
+    sockaddr_in mServerAdress;
+    std::string mRootDir;
 
-    std::vector<std::thread> threads;
-    std::vector<std::unique_ptr<Connection>> connections;
+    std::vector<std::thread> mThreads;
+    std::vector<std::unique_ptr<Connection>> mConnections;
 
   public:
     explicit Server(const ServerArgs &args);

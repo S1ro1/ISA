@@ -35,18 +35,18 @@ std::vector<uint8_t> TFTP::RRQPacket::serialize() const {
 
   output.push_back(0);
   output.push_back(1);
-  for (char c: filename) {
+  for (char c: mFilename) {
     output.push_back(static_cast<uint8_t>(c));
   }
 
   output.push_back(0);
 
-  for (char c: mode) {
+  for (char c: mMode) {
     output.push_back(static_cast<uint8_t>(c));
   }
 
   output.push_back(0);
-  auto opts = Options::serialize(options);
+  auto opts = Options::serialize(mOptions);
   output.insert(output.end(), opts.begin(), opts.end());
   return output;
 }
@@ -81,9 +81,9 @@ std::unique_ptr<TFTP::RRQPacket> TFTP::RRQPacket::deserializeFromData(const std:
 }
 
 std::string TFTP::RRQPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const {
-  std::string result = "RRQ " + src_ip + ":" + std::to_string(port) + " " + "\"" + filename + "\" " + mode;
-  if (!options.empty()) {
-    result += " " + Options::format(options);
+  std::string result = "RRQ " + src_ip + ":" + std::to_string(port) + " " + "\"" + mFilename + "\" " + mMode;
+  if (!mOptions.empty()) {
+    result += " " + Options::format(mOptions);
   }
   result += "\n";
   return result;
@@ -93,18 +93,18 @@ std::vector<uint8_t> TFTP::WRQPacket::serialize() const {
   std::vector<uint8_t> output;
   output.push_back(0);
   output.push_back(2);
-  for (char c: filename) {
+  for (char c: mFilename) {
     output.push_back(static_cast<uint8_t>(c));
   }
 
   output.push_back(0);
 
-  for (char c: mode) {
+  for (char c: mMode) {
     output.push_back(static_cast<uint8_t>(c));
   }
 
   output.push_back(0);
-  auto opts = Options::serialize(options);
+  auto opts = Options::serialize(mOptions);
   output.insert(output.end(), opts.begin(), opts.end());
   return output;
 }
@@ -138,9 +138,9 @@ std::unique_ptr<TFTP::WRQPacket> TFTP::WRQPacket::deserializeFromData(const std:
 }
 
 std::string TFTP::WRQPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const {
-  std::string result = "WRQ " + src_ip + ":" + std::to_string(port) + " " + "\"" + filename + "\" " + mode;
-  if (!options.empty()) {
-    result += " " + Options::format(options);
+  std::string result = "WRQ " + src_ip + ":" + std::to_string(port) + " " + "\"" + mFilename + "\" " + mMode;
+  if (!mOptions.empty()) {
+    result += " " + Options::format(mOptions);
   }
   result += "\n";
   return result;
@@ -152,10 +152,10 @@ std::vector<uint8_t> TFTP::DataPacket::serialize() const {
   output.push_back(0);
   output.push_back(3);
 
-  output.push_back((blockNumber >> 8) & 0xFF);
-  output.push_back(blockNumber & 0xFF);
+  output.push_back((mBlkNumber >> 8) & 0xFF);
+  output.push_back(mBlkNumber & 0xFF);
 
-  for (uint8_t byte: data) {
+  for (uint8_t byte: mData) {
     output.push_back(byte);
   }
 
@@ -173,7 +173,7 @@ std::unique_ptr<TFTP::DataPacket> TFTP::DataPacket::deserializeFromData(const st
 
 std::string TFTP::DataPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const {
   std::string result = "DATA " + src_ip + ":" + std::to_string(port) + ":" + std::to_string(dst_port) + " " +
-                       std::to_string(blockNumber) + "\n";
+                       std::to_string(mBlkNumber) + "\n";
 
   return result;
 }
@@ -182,8 +182,8 @@ std::vector<uint8_t> TFTP::ACKPacket::serialize() const {
   std::vector<uint8_t> output;
   output.push_back(0);
   output.push_back(4);
-  output.push_back((blockNumber >> 8) & 0xFF);
-  output.push_back(blockNumber & 0xFF);
+  output.push_back((mBlkNumber >> 8) & 0xFF);
+  output.push_back(mBlkNumber & 0xFF);
   return output;
 }
 
@@ -197,7 +197,7 @@ std::unique_ptr<TFTP::ACKPacket> TFTP::ACKPacket::deserializeFromData(const std:
 }
 
 std::string TFTP::ACKPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const {
-  std::string result = "ACK " + src_ip + ":" + std::to_string(port) + " " + std::to_string(blockNumber) + "\n";
+  std::string result = "ACK " + src_ip + ":" + std::to_string(port) + " " + std::to_string(mBlkNumber) + "\n";
   return result;
 }
 
@@ -206,10 +206,10 @@ std::vector<uint8_t> TFTP::ErrorPacket::serialize() const {
   output.push_back(0);
   output.push_back(5);
 
-  output.push_back((errorCode >> 8) & 0xFF);
-  output.push_back(errorCode & 0xFF);
+  output.push_back((mErrorCode >> 8) & 0xFF);
+  output.push_back(mErrorCode & 0xFF);
 
-  for (char c: errorMsg) {
+  for (char c: mErrorMessage) {
     output.push_back(static_cast<uint8_t>(c));
   }
 
@@ -235,7 +235,7 @@ std::unique_ptr<TFTP::ErrorPacket> TFTP::ErrorPacket::deserializeFromData(const 
 
 std::string TFTP::ErrorPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const {
   std::string result =
-          "ERROR " + src_ip + ":" + std::to_string(port) + " " + std::to_string(errorCode) + " " + "\"" + errorMsg +
+          "ERROR " + src_ip + ":" + std::to_string(port) + " " + std::to_string(mErrorCode) + " " + "\"" + mErrorMessage +
           "\"\n";
 
   return result;
@@ -247,7 +247,7 @@ std::vector<uint8_t> TFTP::OACKPacket::serialize() const {
   output.push_back(0);
   output.push_back(6);
 
-  auto opts = Options::serialize(options);
+  auto opts = Options::serialize(mOptions);
 
   output.insert(output.end(), opts.begin(), opts.end());
 
@@ -268,7 +268,7 @@ std::unique_ptr<TFTP::OACKPacket> TFTP::OACKPacket::deserializeFromData(const st
 }
 
 std::string TFTP::OACKPacket::formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const {
-  std::string result = "OACK " + src_ip + ":" + std::to_string(port) + " " + Options::format(options) + "\n";
+  std::string result = "OACK " + src_ip + ":" + std::to_string(port) + " " + Options::format(mOptions) + "\n";
 
   return result;
 }

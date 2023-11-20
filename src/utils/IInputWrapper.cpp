@@ -37,22 +37,22 @@ void NetAscii::InputWrapper::flush(char *os, std::streamsize n) {
 }
 
 NetAscii::InputFile::InputFile(const std::string &filename) {
-  file.open(filename, std::ios::binary);
+  mFile.open(filename, std::ios::binary);
 }
 
 NetAscii::InputFile::~InputFile() {
-  file.close();
+  mFile.close();
 }
 
 
 void NetAscii::InputFile::read(char *os, std::streamsize n) {
   flush(os, n);
 
-  while (!file.eof() && mSize != n) {
+  while (!mFile.eof() && mSize != n) {
     char c;
 
-    file.get(c);
-    if (file.eof()) {
+    mFile.get(c);
+    if (mFile.eof()) {
       break;
     }
 
@@ -76,16 +76,16 @@ void NetAscii::InputStdin::read(char *os, std::streamsize n) {
 }
 
 Octet::InputFile::InputFile(const std::string &filename) {
-  file.open(filename, std::ios::binary);
+  mFile.open(filename, std::ios::binary);
 }
 
 Octet::InputFile::~InputFile() {
-  file.close();
+  mFile.close();
 }
 
 void Octet::InputFile::read(char *os, std::streamsize n) {
-  file.read(os, n);
-  mSize = file.gcount();
+  mFile.read(os, n);
+  mSize = mFile.gcount();
 }
 
 void Octet::InputStdin::read(char *os, std::streamsize n) {

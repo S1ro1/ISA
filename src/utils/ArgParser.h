@@ -13,19 +13,19 @@
 #include <unistd.h>
 
 struct ClientArgs {
-  std::string address;
-  uint32_t port;
+  std::string mAddress;
+  uint32_t mPort;
 
-  std::optional<std::string> src_file_path;
-  std::string dst_file_path;
+  std::optional<std::string> mSrcFilePath;
+  std::string mDestFilePath;
 
 public:
   friend std::ostream &operator<<(std::ostream &os, const ClientArgs &obj);
 };
 
 struct ServerArgs {
-  uint32_t port;
-  std::string root_dir;
+  uint32_t mPort;
+  std::string mRootDir;
 
 public:
   friend std::ostream &operator<<(std::ostream &os, const ServerArgs &obj);

@@ -6,9 +6,9 @@
 #define ISA_PROJECT_CLIENT_H
 
 #include <arpa/inet.h>
+#include <csignal>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <csignal>
 
 #include "../utils/ArgParser.h"
 #include "../utils/IInputWrapper.h"

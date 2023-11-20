@@ -45,21 +45,21 @@ TFTP::Client::Client(const ClientArgs &args, Options::map_t opts) : mOptions(std
   mTransmissionMode = "octet";
 
   mBlockNumber = 1;
-  mDestFilePath = args.dst_file_path;
+  mDestFilePath = args.mDestFilePath;
   mState = State::INIT;
   mErrorPacket = std::nullopt;
 
-  if (args.src_file_path.has_value()) {
+  if (args.mSrcFilePath.has_value()) {
     mMode = Mode::DOWNLOAD;
-    mSrcFilePath = args.src_file_path.value();
+    mSrcFilePath = args.mSrcFilePath.value();
   } else
     mMode = Mode::UPLOAD;
 
   memset(&mServerAddress, 0, sizeof(mServerAddress));
 
   mServerAddress.sin_family = AF_INET;
-  mServerAddress.sin_port = htons(args.port);
-  inet_pton(AF_INET, args.address.c_str(), &mServerAddress.sin_addr);
+  mServerAddress.sin_port = htons(args.mPort);
+  inet_pton(AF_INET, args.mAddress.c_str(), &mServerAddress.sin_addr);
 }
 
 void TFTP::Client::sendPacket(const Packet &packet) {

@@ -53,14 +53,14 @@ namespace NetAscii {
    * @brief Wrapper for netascii file input
    */
   class InputFile : public InputWrapper {
-    std::ifstream file;
+    std::ifstream mFile;
 
   public:
     explicit InputFile(const std::string &filename);
     ~InputFile() override;
     void read(char *os, std::streamsize n) override;
-    bool is_open() const override { return file.is_open(); }
-    bool eof() const override { return file.eof(); }
+    bool is_open() const override { return mFile.is_open(); }
+    bool eof() const override { return mFile.eof(); }
   };
 
   /**
@@ -85,14 +85,14 @@ namespace Octet {
    * @brief Wrapper for octet file input
    */
   class InputFile : public InputWrapper {
-    std::ifstream file;
+    std::ifstream mFile;
 
   public:
     explicit InputFile(const std::string &filename);
     ~InputFile() override;
     void read(char *os, std::streamsize n) override;
-    bool is_open() const override { return file.is_open(); }
-    bool eof() const override { return file.eof(); }
+    bool is_open() const override { return mFile.is_open(); }
+    bool eof() const override { return mFile.eof(); }
   };
 
   /**

@@ -19,7 +19,7 @@ namespace Options {
 
   class InvalidFormatException final : public std::runtime_error {
   public:
-    InvalidFormatException() : std::runtime_error("Invalid options format") {}
+    InvalidFormatException() : std::runtime_error("Invalid mOptions format") {}
   };
 
   class InvalidValueException final : public std::runtime_error {

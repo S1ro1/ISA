@@ -11,8 +11,8 @@ void ServerSigintHandler(int signum) {
 }
 
 TFTP::Server::Server(const ServerArgs &args) {
-  main_socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
-  root_dir = args.root_dir;
+  mMainSocketFd = socket(AF_INET, SOCK_DGRAM, 0);
+  mRootDir = args.mRootDir;
 
   struct sigaction sa;
   sa.sa_handler = ServerSigintHandler;
@@ -21,18 +21,18 @@ TFTP::Server::Server(const ServerArgs &args) {
   sa.sa_flags = 0;
   sigaction(SIGINT, &sa, NULL);
 
-  server_address = {};
-  memset(&server_address, 0, sizeof(server_address));
+  mServerAdress = {};
+  memset(&mServerAdress, 0, sizeof(mServerAdress));
 
-  server_address.sin_family = AF_INET;
-  server_address.sin_port = htons(args.port);
+  mServerAdress.sin_family = AF_INET;
+  mServerAdress.sin_port = htons(args.mPort);
 
-//  timeval read_timeout{};
-//  read_timeout.tv_sec = 0;
-//  read_timeout.tv_usec = 100;
-//  setsockopt(main_socket_fd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
+  //  timeval read_timeout{};
+  //  read_timeout.tv_sec = 0;
+  //  read_timeout.tv_usec = 100;
+  //  setsockopt(mMainSocketFd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
 
-  bind(main_socket_fd, reinterpret_cast<sockaddr *>(&server_address), sizeof(server_address));
+  bind(mMainSocketFd, reinterpret_cast<sockaddr *>(&mServerAdress), sizeof(mServerAdress));
 }
 
 void TFTP::Server::listen() {
@@ -42,7 +42,7 @@ void TFTP::Server::listen() {
     sockaddr_in from_address = {};
     socklen_t from_length = sizeof(from_address);
 
-    ssize_t received = recvfrom(main_socket_fd, buffer.data(), buffer.size(), 0, (struct sockaddr *) &from_address,
+    ssize_t received = recvfrom(mMainSocketFd, buffer.data(), buffer.size(), 0, (struct sockaddr *) &from_address,
                                 &from_length);
 
     if (received <= 0) {
@@ -59,7 +59,7 @@ void TFTP::Server::listen() {
       packet = Packet::deserialize(buffer);
     } catch (TFTP::PacketFormatException &e) {
       auto error_packet = ErrorPacket{4, "Illegal TFTP operation"}.serialize();
-      sendto(main_socket_fd, error_packet.data(), error_packet.size(), 0, (struct sockaddr *) &from_address,
+      sendto(mMainSocketFd, error_packet.data(), error_packet.size(), 0, (struct sockaddr *) &from_address,
              sizeof(from_address));
 
       continue;
@@ -68,10 +68,10 @@ void TFTP::Server::listen() {
     const auto wrq_packet = dynamic_cast<WRQPacket *>(packet.get());
 
     std::cerr << packet->formatPacket(inet_ntoa(from_address.sin_addr), ntohs(from_address.sin_port),
-                                      ntohs(server_address.sin_port));
+                                      ntohs(mServerAdress.sin_port));
 
     // TODO: error handling
-    std::filesystem::path path{root_dir};
+    std::filesystem::path path{mRootDir};
     Options::map_t validated_options;
     if (rrq_packet) {
       path /= rrq_packet->getFilename();
@@ -79,14 +79,14 @@ void TFTP::Server::listen() {
         validated_options = Options::validate(rrq_packet->getOptions());
       } catch (Options::InvalidFormatException &e) {
         auto error_packet = ErrorPacket{4, "Illegal TFTP operation"}.serialize();
-        sendto(main_socket_fd, error_packet.data(), error_packet.size(), 0, (struct sockaddr *) &from_address,
+        sendto(mMainSocketFd, error_packet.data(), error_packet.size(), 0, (struct sockaddr *) &from_address,
                sizeof(from_address));
         continue;
       }
       auto connection = std::make_unique<TFTP::Connection>(path, validated_options,
                                                            from_address, rrq_packet->getMode());
-      connections.push_back(std::move(connection));
-      threads.emplace_back(&TFTP::Connection::serveDownload, connections.back().get());
+      mConnections.push_back(std::move(connection));
+      mThreads.emplace_back(&TFTP::Connection::serveDownload, mConnections.back().get());
 
     } else if (wrq_packet) {
       path /= wrq_packet->getFilename();
@@ -94,33 +94,33 @@ void TFTP::Server::listen() {
         validated_options = Options::validate(wrq_packet->getOptions());
       } catch (Options::InvalidFormatException &e) {
         auto error_packet = ErrorPacket{4, "Illegal TFTP operation"}.serialize();
-        sendto(main_socket_fd, error_packet.data(), error_packet.size(), 0, (struct sockaddr *) &from_address,
+        sendto(mMainSocketFd, error_packet.data(), error_packet.size(), 0, (struct sockaddr *) &from_address,
                sizeof(from_address));
         continue;
       }
       auto connection = std::make_unique<TFTP::Connection>(path, validated_options,
                                                            from_address, wrq_packet->getMode());
-      connections.push_back(std::move(connection));
-      threads.emplace_back(&TFTP::Connection::serveUpload, connections.back().get());
+      mConnections.push_back(std::move(connection));
+      mThreads.emplace_back(&TFTP::Connection::serveUpload, mConnections.back().get());
 
     } else {
       auto error_packet = ErrorPacket{4, "Illegal TFTP operation"}.serialize();
-      sendto(main_socket_fd, error_packet.data(), error_packet.size(), 0, (struct sockaddr *) &from_address,
+      sendto(mMainSocketFd, error_packet.data(), error_packet.size(), 0, (struct sockaddr *) &from_address,
              sizeof(from_address));
     }
   }
 }
 
 TFTP::Server::~Server() {
-  for (auto &connection: connections) {
+  for (auto &connection: mConnections) {
     connection->cleanup();
   }
 
-  for (std::thread& thread : threads) {
+  for (std::thread &thread: mThreads) {
     pthread_kill(thread.native_handle(), SIGUSR1);
   }
 
-  for (auto &thread: threads) {
+  for (auto &thread: mThreads) {
     thread.join();
   }
 }
