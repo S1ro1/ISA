@@ -1,6 +1,4 @@
-//
-// Created by Matej Sirovatka on 09.10.2023.
-//
+// Matej Sirovatka, xsirov00
 
 #include "Client.h"
 

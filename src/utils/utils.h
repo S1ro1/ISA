@@ -1,12 +1,13 @@
-//
-// Created by Matej Sirovatka on 14.10.2023.
-//
+// Matej Sirovatka, xsirov00
 
 #ifndef ISA_PROJECT_UTILS_H
 #define ISA_PROJECT_UTILS_H
 
 #include <iostream>
 
+/**
+ * @brief Enum representing state of the TFTP protocol
+ */
 enum class Mode {
   DOWNLOAD,
   UPLOAD,

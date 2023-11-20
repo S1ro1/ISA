@@ -1,6 +1,4 @@
-//
-// Created by Matej Sirovatka on 14.10.2023.
-//
+// Matej Sirovatka, xsirov00
 
 #include "Connection.h"
 

@@ -1,6 +1,4 @@
-//
-// Created by Matej Sirovatka on 08.10.2023.
-//
+// Matej Sirovatka, xsirov00
 
 #ifndef ISA_PROJECT_PACKET_H
 #define ISA_PROJECT_PACKET_H
@@ -18,17 +16,39 @@
 #include "common.h"
 
 namespace TFTP {
+  /**
+   * @brief Abstract class representing all types of packets
+   */
   class Packet {
   public:
     virtual ~Packet() = default;
 
+    /**
+     * @brief Serializes packet to byte vector
+     * @return Serialized packet
+     */
     [[nodiscard]] virtual std::vector<uint8_t> serialize() const = 0;
 
+    /**
+     * @brief Formats packet to string
+     * @param src_ip ip from where it was received
+     * @param port port from where it was received
+     * @param dst_port port of the destination
+     * @return string representation of the packet
+     */
     [[nodiscard]] virtual std::string formatPacket(std::string src_ip, uint16_t port, uint16_t dst_port) const = 0;
 
+    /**
+     * @brief Deserializes packet from byte vector
+     * @param data byte vector to deserialize from
+     * @return unique pointer to the deserialized packet, throws exception if packet is invalid
+     */
     static std::unique_ptr<Packet> deserialize(const std::vector<uint8_t> &data);
   };
 
+  /**
+   * @brief Packet representing RRQ
+   */
   class RRQPacket : public Packet {
     std::string mFilename;
     std::string mMode;

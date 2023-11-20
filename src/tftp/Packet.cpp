@@ -1,6 +1,4 @@
-//
-// Created by Matej Sirovatka on 08.10.2023.
-//
+// Matej Sirovatka, xsirov00
 
 #include "Packet.h"
 

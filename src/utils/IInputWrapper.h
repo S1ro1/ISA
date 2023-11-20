@@ -1,6 +1,4 @@
-//
-// Created by Matej Sirovatka on 14.11.2023.
-//
+// Matej Sirovatka, xsirov00
 
 #ifndef ISA_TEST_IINPUTWRAPPER_H
 #define ISA_TEST_IINPUTWRAPPER_H
@@ -33,7 +31,13 @@ public:
      */
   virtual void read(char *os, std::streamsize n) = 0;
 
+  /**
+   * @return true if input stream is open
+   */
   [[nodiscard]] virtual bool is_open() const { return true; }
+  /**
+   * @return true if end of file was reached
+   */
   [[nodiscard]] virtual bool eof() const = 0;
 };
 
@@ -45,7 +49,19 @@ namespace NetAscii {
   class InputWrapper : public IInputWrapper {
   protected:
     std::optional<char> mLastChar = std::nullopt;
+    /**
+     * pushes character to output stream, converts it to netascii if needed
+     * @param os output stream
+     * @param c character
+     * @param n number of characters to read
+     */
     void push(char *os, char c, std::streamsize n);
+
+    /**
+     * @brief empties buffer holding overflowing characters
+     * @param os output stream
+     * @param n number of characters to read
+     */
     void flush(char *os, std::streamsize n);
   };
 

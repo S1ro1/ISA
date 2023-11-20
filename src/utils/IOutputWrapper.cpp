@@ -1,6 +1,4 @@
-//
-// Created by Matej Sirovatka on 14.11.2023.
-//
+// Matej Sirovatka, xsirov00
 
 #include "IOutputWrapper.h"
 

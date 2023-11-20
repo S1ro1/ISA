@@ -1,6 +1,4 @@
-//
-// Created by Matej Sirovatka on 14.10.2023.
-//
+// Matej Sirovatka, xsirov00
 
 #ifndef ISA_PROJECT_SERVER_H
 #define ISA_PROJECT_SERVER_H
@@ -13,6 +11,9 @@
 #include "Packet.h"
 
 namespace TFTP {
+  /**
+   * @brief Server class
+   */
   class Server {
     int mMainSocketFd;
     sockaddr_in mServerAdress;
@@ -22,10 +23,17 @@ namespace TFTP {
     std::vector<std::unique_ptr<Connection>> mConnections;
 
   public:
+    /**
+     * @brief Server constructor
+     * @param args structure holding arguments passed to the program
+     */
     explicit Server(const ServerArgs &args);
 
     ~Server();
 
+    /**
+     * @brief Starts listening for incoming connections
+     */
     void listen();
   };
 }// namespace TFTP
