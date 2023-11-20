@@ -21,9 +21,6 @@ TFTP::Server::Server(const ServerArgs &args) {
   sa.sa_flags = 0;
   sigaction(SIGINT, &sa, NULL);
 
-  // remove SA_RESTART from the SIGINT handler
-  auto val = sigaction(SIGINT, &sa, NULL);
-
   server_address = {};
   memset(&server_address, 0, sizeof(server_address));
 
@@ -117,6 +114,10 @@ void TFTP::Server::listen() {
 TFTP::Server::~Server() {
   for (auto &connection: connections) {
     connection->cleanup();
+  }
+
+  for (std::thread& thread : threads) {
+    pthread_kill(thread.native_handle(), SIGUSR1);
   }
 
   for (auto &thread: threads) {

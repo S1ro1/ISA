@@ -34,14 +34,12 @@ TFTP::Client::Client(const ClientArgs &args, Options::map_t opts) : mOptions(std
   getsockname(mSocketFd, (struct sockaddr *) &mClientAddress, &client_len);
 
   // Set up the SIGINT handler
-  struct sigaction sa {};
-  memset(&sa, 0, sizeof(sa));
+  struct sigaction sa;
   sa.sa_handler = ClientSigintHandler;
-  sigaction(SIGINT, &sa, nullptr);
 
-  // remove SA_RESTART from the SIGINT handler
-  sa.sa_flags &= ~SA_RESTART;
-  sigaction(SIGINT, &sa, nullptr);
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+  sigaction(SIGINT, &sa, NULL);
 
   mClientPort = mClientAddress.sin_port;
   mTransmissionMode = "octet";

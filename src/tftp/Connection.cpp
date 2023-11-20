@@ -4,10 +4,21 @@
 
 #include "Connection.h"
 
+void ConnectionSigUsrHandler(int signum) {
+  return;
+}
+
 TFTP::Connection::Connection(std::string file, Options::map_t options, sockaddr_in client_address, std::string transmission_mode) {
   mFilePath = std::move(file);
   mOptions = std::move(options);
   mTransmissionMode = std::move(transmission_mode);
+
+  struct sigaction sa;
+  sa.sa_handler = ConnectionSigUsrHandler;
+
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+  sigaction(SIGUSR1, &sa, NULL);
 
   mBlockNumber = 0;
   mState = State::INIT;
