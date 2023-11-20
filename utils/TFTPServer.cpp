@@ -9,7 +9,6 @@ volatile sig_atomic_t running = 1;
 
 void siginthandler([[maybe_unused]] int signum) {
   running = 0;
-  LOG("SIGINT received, shutting down...");
 }
 
 TFTPServer::TFTPServer(const ServerArgs &args) {

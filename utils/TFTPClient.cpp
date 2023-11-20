@@ -3,11 +3,12 @@
 //
 
 #include "TFTPClient.h"
-#include "TFTP.h"
-#include <iomanip>
 
-#include <chrono>
-#include <thread>
+volatile sig_atomic_t running = 1;
+
+void siginthandler([[maybe_unused]] int signum) {
+  running = 0;
+}
 
 void TFTPClient::transmit() {
   if (mMode == Mode::DOWNLOAD) {
@@ -31,6 +32,16 @@ TFTPClient::TFTPClient(const ClientArgs &args, Options::map_t opts) : mOptions(s
   bind(mSocketFd, (struct sockaddr *) &mClientAddress, client_len);
 
   getsockname(mSocketFd, (struct sockaddr *) &mClientAddress, &client_len);
+
+  // Set up the SIGINT handler
+  struct sigaction sa {};
+  memset(&sa, 0, sizeof(sa));
+  sa.sa_handler = siginthandler;
+  sigaction(SIGINT, &sa, nullptr);
+
+  // remove SA_RESTART from the SIGINT handler
+  sa.sa_flags &= ~SA_RESTART;
+  sigaction(SIGINT, &sa, nullptr);
 
   mClientPort = mClientAddress.sin_port;
   mTransmissionMode = "octet";
@@ -111,7 +122,7 @@ void TFTPClient::requestRead() {
   Options::map_t opts = {};
   mLastPacket = std::make_unique<RRQPacket>(mSrcFilePath, mTransmissionMode, opts);
 
-  while (mState != TFTPState::ERROR && mState != TFTPState::FINAL_ACK) {
+  while (mState != TFTPState::ERROR && mState != TFTPState::FINAL_ACK && running) {
 
     auto packet = exchangePackets(*mLastPacket, true);
     if (!packet) {
@@ -167,7 +178,7 @@ void TFTPClient::requestWrite() {
 
   bool toSend = true;
 
-  while (mState != TFTPState::ERROR && mState != TFTPState::FINAL_ACK) {
+  while (mState != TFTPState::ERROR && mState != TFTPState::FINAL_ACK && running) {
     auto packet = exchangePackets(*mLastPacket, toSend);
 
     if (!packet) {
