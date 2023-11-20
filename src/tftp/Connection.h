@@ -9,6 +9,7 @@
 
 #include <csignal>
 #include <filesystem>
+#include <algorithm>
 
 #include "../utils/ArgParser.h"
 #include "../utils/IInputWrapper.h"

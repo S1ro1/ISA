@@ -67,7 +67,7 @@ void TFTP::Connection::serveDownload() {
   mBlockNumber = 0;
   bool send = true;
   while (mState != State::FINAL_ACK and mState != State::ERROR) {
-    std::vector<char> buffer(65536);
+    std::vector<char> buffer(std::max(Options::get("blksize", mOptions), 512l) + 4);
 
     if (mBlockNumber == 0) {
       if (Options::isAny(mOptions)) {
@@ -214,7 +214,7 @@ void TFTP::Connection::sendPacket(const Packet &packet) {
 }
 
 std::unique_ptr<TFTP::Packet> TFTP::Connection::receivePacket() const {
-  std::vector<uint8_t> buffer(65535);
+  std::vector<uint8_t> buffer(std::max(Options::get("blksize", mOptions), 512l) + 4);
   sockaddr_in from_address = {};
   socklen_t from_length = sizeof(from_address);
   ssize_t received = recvfrom(mSocketFd, buffer.data(), buffer.size(), 0, (struct sockaddr *) &from_address,
@@ -253,12 +253,6 @@ void TFTP::Connection::cleanup() {
   }
 }
 
-/**
- * Sends packet depending on send param, waits for 3 timeouts and returns it, returns nullptr and sets error packet accordingly in case of failure
- * @param packetToSend packet to be sent
- * @param send whether to send packet, or just wait
- * @return received, packet, nullptr in case of failure
- */
 std::unique_ptr<TFTP::Packet> TFTP::Connection::sendAndReceive(const Packet &packetToSend, bool send) {
   int retries = 0;
   while (retries < 3) {

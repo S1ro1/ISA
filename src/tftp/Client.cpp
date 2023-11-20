@@ -67,7 +67,7 @@ void TFTP::Client::sendPacket(const Packet &packet) {
 }
 
 std::unique_ptr<TFTP::Packet> TFTP::Client::receivePacket() {
-  std::vector<uint8_t> buffer(65535);
+  std::vector<uint8_t> buffer(std::max(Options::get("blksize", mOptions), 512l) + 4);
   sockaddr_in from_address = {};
   socklen_t from_length = sizeof(from_address);
   ssize_t received = recvfrom(mSocketFd, buffer.data(), buffer.size(), 0, (struct sockaddr *) &from_address,
