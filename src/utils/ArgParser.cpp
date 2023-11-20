@@ -2,6 +2,15 @@
 
 #include "ArgParser.h"
 
+void printServerHelp() {
+  std::cout << "Usage: tftp-server [-p PORT] ROOT_DIR" << std::endl;
+}
+
+void printClientHelp() {
+  std::cout << "Usage download: tftp-client -h HOST -t DESTINATION_PATH [-p PORT] [-f SOURCE_PATH]" << std::endl;
+  std::cout << "Usage upload (reads from stdin): tftp-client -h HOST -t DESTINATION_PATH [-p PORT]" << std::endl;
+}
+
 ClientArgs ArgParser::parseClientArgs(char *argv[], int argc) {
   int opt;
 
@@ -27,13 +36,13 @@ ClientArgs ArgParser::parseClientArgs(char *argv[], int argc) {
         args.mDestFilePath = optarg;
         break;
       default:
-        std::cerr << "Wrong arguments specified" << std::endl;
+        printClientHelp();
         exit(2);
     }
   }
 
   if (args.mAddress.empty() or args.mDestFilePath.empty()) {
-    std::cerr << "Wrong arguments specified" << std::endl;
+    printClientHelp();
     exit(2);
   }
 
@@ -71,7 +80,7 @@ ServerArgs ArgParser::parseServerArgs(char *argv[], int argc) {
         args.mPort = std::strtol(optarg, nullptr, 10);
         break;
       default:
-        std::cerr << "Wrong arguments specified" << std::endl;
+        printServerHelp();
         exit(2);
     }
   }
@@ -82,13 +91,13 @@ ServerArgs ArgParser::parseServerArgs(char *argv[], int argc) {
         args.mRootDir = argv[i];
       }
     } else {
-      std::cerr << "Wrong arguments specified" << std::endl;
+      printServerHelp();
       exit(2);
     }
   }
 
   if (args.mRootDir.empty()) {
-    std::cerr << "Wrong arguments specified" << std::endl;
+    printServerHelp();
     exit(2);
   }
 
